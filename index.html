@@ -31,12 +31,14 @@
 <div id="content"></div>
 <script>
 (function(){
-  // アプリ本体のURLは #u= に載せて受け取る（このページには保存しない）
+  // アプリ本体（GAS Webアプリ）のURL。#u= が無くても確実に開けるよう既定値を持つ。
+  var DEFAULT_URL='https://script.google.com/macros/s/AKfycbw6T65JMCen-pevZIQFoZvhyfJtsx56EfKqzOp1ERSORG3wdSBr1aINeMTREijhj1Hwdw/exec';
   var KEY='kaikei_app_url';
   var m=location.hash.match(/[#&]u=(.+)$/);
   var url=m?decodeURIComponent(m[1]):null;
   if(url){ try{localStorage.setItem(KEY,url);}catch(e){} }
   else   { try{url=localStorage.getItem(KEY);}catch(e){} }
+  if(!url) url=DEFAULT_URL;   // ホーム画面起動でストレージが空でも既定URLで開く
 
   var standalone = (navigator.standalone===true) ||
                    (window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
