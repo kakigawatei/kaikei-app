@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>会計台帳</title>
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="会計台帳">
+<meta name="theme-color" content="#274b73">
+<style>
+  body{margin:0;font-family:-apple-system,"Hiragino Sans",sans-serif;background:#f7f3ea;
+       display:flex;flex-direction:column;align-items:center;justify-content:center;
+       min-height:100vh;text-align:center;color:#333;padding:24px;box-sizing:border-box}
+  img.icon{width:120px;height:120px;border-radius:26px;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+  h1{font-size:20px;margin:18px 0 6px}
+  p{font-size:14px;color:#666;line-height:1.7;margin:6px 0}
+  .btn{display:inline-block;margin-top:18px;padding:14px 36px;background:#274b73;color:#fff;
+       border-radius:12px;text-decoration:none;font-size:16px;font-weight:bold}
+  .guide{background:#fff;border-radius:12px;padding:14px 18px;margin-top:22px;font-size:13px;
+         color:#555;text-align:left;max-width:340px;line-height:1.9}
+  .err{color:#c00}
+</style>
+</head>
+<body>
+<img class="icon" src="icon-192.png" alt="会計台帳">
+<h1>会計台帳</h1>
+<div id="content"></div>
+<script>
+(function(){
+  // 会計台帳（Googleシート）のURL。#u= が無くても確実に開けるよう既定値を持つ。
+  var DEFAULT_URL='https://docs.google.com/spreadsheets/u/0/d/1GGH5blWhaMqaIcT5EtqAMXOjoV4rXYxH/htmlview?pli=1';
+  var KEY='kaikei_daicho_url';
+  var m=location.hash.match(/[#&]u=(.+)$/);
+  var url=m?decodeURIComponent(m[1]):null;
+  if(url){ try{localStorage.setItem(KEY,url);}catch(e){} }
+  else   { try{url=localStorage.getItem(KEY);}catch(e){} }
+  if(!url) url=DEFAULT_URL;
+
+  var standalone = (navigator.standalone===true) ||
+                   (window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+  var c=document.getElementById('content');
+
+  if(standalone){
+    location.replace(url);   // ホーム画面から起動 → 即台帳へ
+    return;
+  }
+  c.innerHTML =
+    '<p>柿川亭・アブララボの会計台帳を<br>スマホで見るためのショートカットです。</p>'+
+    '<a class="btn" href="'+url.replace(/"/g,'')+'">台帳を開く</a>'+
+    '<div class="guide"><b>📲 ホーム画面に追加すると便利です</b><br>'+
+    '1. Safariの共有ボタン（□↑）をタップ<br>'+
+    '2. 「ホーム画面に追加」を選ぶ<br>'+
+    '3. 右上の「追加」をタップ<br>'+
+    '→ このアイコンからワンタップで台帳が開けます</div>';
+})();
+</script>
+</body>
+</html>
