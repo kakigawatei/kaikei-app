@@ -380,7 +380,13 @@ function openRoom(s){
   if (feedTimer) clearInterval(feedTimer);
   feedTimer = setInterval(loadFeed, 15000);
 }
-var LOG_STEP = 60;            /* 一度に描く件数 */
+var LOG_STEP = 40;            /* 一度に描く件数 */
+/* Discordの添付は media.discordapp.net の縮小版（幅900px以内）を読む。署名付きURLでも width/height は許可されている */
+function thumbUrl(u){
+  if (!/https:\/\/(cdn|media)\.discordapp\.(com|net)\/attachments\//.test(u)) return u;
+  var v = u.replace("https://cdn.discordapp.com/", "https://media.discordapp.net/");
+  return v + (v.indexOf("?") >= 0 ? "&" : "?") + "width=900&height=900";
+}
 var logShown = {};            /* 部屋ごとに何件まで描いているか */
 var lastLogKey = "";          /* 直前に描いた内容の指紋（同じなら描き直さない） */
 function drawLog(){
@@ -397,7 +403,7 @@ function drawLog(){
   lastLogKey = key;
   var html = rows.map(function(m, i){
     var imgs = (m.img || []).map(function(u){
-      return '<span class="imgwrap"><img src="' + u + '" alt="" loading="lazy" decoding="async">' +
+      return '<span class="imgwrap"><img src="' + thumbUrl(u) + '" data-orig="' + u + '" onerror="if(this.src!==this.getAttribute(\'data-orig\')){this.src=this.getAttribute(\'data-orig\');}" alt="" loading="lazy" decoding="async">' +
              '<button class="copy img" data-url="' + u + '" title="画像をコピー">🖼</button></span>';
     }).join("");
     if ((m.img || []).length > 1) imgs = '<div class="pics">' + imgs + '</div>';
@@ -433,7 +439,11 @@ function drawLog(){
     l.scrollTop = l.scrollTop + (l.scrollHeight - before);   /* 見ていた位置を保つ */
   };
   Array.prototype.forEach.call(l.querySelectorAll(".bub img"), function(im){
-    im.onclick = function(){ im.className = im.className ? "" : "big"; };
+    im.onclick = function(){
+      im.className = im.className ? "" : "big";
+      var o = im.getAttribute("data-orig");
+      if (im.className === "big" && o && im.src !== o) im.src = o;
+    };
   });
   Array.prototype.forEach.call(l.querySelectorAll(".imgwrap"), function(w){
     if (w.querySelector("img.big")) w.style.display = "block";
@@ -852,13 +862,26 @@ function fitLayout(){
 }
 window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
+/* iPadでキーボード（Typeless等）を閉じたあと、縮んだ表示領域が戻らないことがある → 何度か張り直す */
+function refit(){
+  window.scrollTo(0, 0);
+  fitLayout();
+  [120, 400, 900].forEach(function(t){ setTimeout(function(){ window.scrollTo(0, 0); fitLayout(); }, t); });
+}
+if (window.visualViewport) {
+  var vvTimer = null;
+  window.visualViewport.addEventListener("resize", function(){ clearTimeout(vvTimer); vvTimer = setTimeout(refit, 60); });
+  window.visualViewport.addEventListener("scroll", function(){ clearTimeout(vvTimer); vvTimer = setTimeout(refit, 60); });
+}
+document.getElementById("box").addEventListener("blur", refit);
+document.addEventListener("visibilitychange", function(){ if (!document.hidden) refit(); });
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = function(){ feedSig = ""; forceBottom = true; loadFeed(); };
 document.getElementById("newpill").onclick = function(){ var l = document.getElementById("log"); l.scrollTop = l.scrollHeight; hideNew(); setTimeout(function(){ l.scrollTop = l.scrollHeight; }, 250); };
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 48;
+var APP_VER = 49;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
