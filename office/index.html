@@ -40,8 +40,9 @@
   main{padding:14px 16px 40px;max-width:1000px;margin:0 auto}
   .office{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);
     margin:0 auto 14px;background:var(--card);width:fit-content;max-width:100%}
-  .office #bg{display:block;width:100%;max-width:100%}
-  .face{position:absolute;left:78%;top:-30%;transform:translateX(-50%);width:42%;
+  .office{aspect-ratio:1400/924}
+  .office #bg{display:block;width:100%;height:100%;max-width:100%;object-fit:cover;object-position:50% 100%}
+  .face{position:absolute;left:84%;top:-10%;transform:translateX(-50%);width:40%;
     pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))}
   .seat{position:absolute;transform:translate(-50%,-50%);width:13%;height:17%;border:0;
     background:transparent;border-radius:14%;cursor:pointer;padding:0}
@@ -123,8 +124,8 @@
     body{overflow:hidden}
     main{position:fixed;left:0;top:var(--hh);bottom:var(--ch);width:var(--leftw);max-width:none;
       padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
-    .office{margin:0 auto;flex:0 0 auto;min-height:0;width:100%}
-    .office #bg{width:100%;height:var(--officeh);object-fit:cover;max-width:none;max-height:none}
+    .office{margin:0 auto;flex:0 0 auto;min-height:0;width:100%;height:var(--officeh)}
+    .office #bg{width:100%;height:100%;max-width:none;max-height:none}
     /* 10人ぶんが必ず入るように、2列×5行ぴったりに割り付ける */
     .grid{flex:1 1 auto;min-height:0;overflow:hidden;
       display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(5,1fr);gap:6px}
@@ -203,16 +204,16 @@ var INBOX = "ai_office_inbox", STATUS = "ai_office_status", FEED = "ai_office_fe
 var feed = {rooms:{}}, feedTimer = null;
 
 var STAFF = [
-  {id:"1532176222946197635", nm:"コン",   role:"LINE秘書",       x:16.8, y:28.6},
-  {id:"1532175887494025398", nm:"ジニー", role:"ながおか探検録", x:41.1, y:25.2, face:"ginny"},
-  {id:"1532176144999252038", nm:"リー",   role:"広告・動画",     x:67.1, y:27.6},
-  {id:"1532176037109174503", nm:"ジョー", role:"経理・会計",     x:91.1, y:29.0},
-  {id:"1532724627934154842", nm:"ポム",   role:"AI事業",         x:27.5, y:60.0},
-  {id:"1532724546732425306", nm:"セレン", role:"リリース担当",   x:48.2, y:59.0},
-  {id:"1532171159645458535", nm:"かねつぐ", role:"お客様窓口", x:67.9, y:59.0},
-  {id:"1517471809392476282", nm:"バウ本部", role:"マーケ・全社", x:87.9, y:65.7},
-  {id:"1542160237723648021", nm:"ずんだ", role:"柿川亭アプリ",   x:32.9, y:86.7},
-  {id:"1542160436487528509", nm:"さくら", role:"山形出店",       x:53.2, y:87.1}
+  {id:"1532176222946197635", nm:"コン",   role:"LINE秘書",       x:16.8, y:18.9},
+  {id:"1532175887494025398", nm:"ジニー", role:"ながおか探検録", x:41.1, y:15.0, face:"ginny"},
+  {id:"1532176144999252038", nm:"リー",   role:"広告・動画",     x:67.1, y:17.7},
+  {id:"1532176037109174503", nm:"ジョー", role:"経理・会計",     x:91.1, y:19.3},
+  {id:"1532724627934154842", nm:"ポム",   role:"AI事業",         x:27.5, y:54.5},
+  {id:"1532724546732425306", nm:"セレン", role:"リリース担当",   x:48.2, y:53.4},
+  {id:"1532171159645458535", nm:"かねつぐ", role:"お客様窓口", x:67.9, y:53.4},
+  {id:"1517471809392476282", nm:"バウ本部", role:"マーケ・全社", x:87.9, y:61.0},
+  {id:"1542160237723648021", nm:"ずんだ", role:"柿川亭アプリ",   x:32.9, y:84.9},
+  {id:"1542160436487528509", nm:"さくら", role:"山形出店",       x:53.2, y:85.3}
 ];
 
 /* ---------- Firebase（匿名ログイン＋Firestore REST） ---------- */
@@ -673,8 +674,8 @@ function fitLayout(){
   var avail = window.innerHeight - hh - ch - 20 - 8;   /* padding と gap */
   var tilesMin = 5 * 46 + 4 * 6;                       /* 一覧の最低ライン */
   var leftw = Math.round(window.innerWidth * 0.5);
-  var ow = leftw - 24, oh = ow * (1050 / 1400);
-  if (avail - oh < tilesMin) { oh = Math.max(160, avail - tilesMin); ow = oh * (1400 / 1050); }
+  var ow = leftw - 24, oh = ow * (924 / 1400);
+  if (avail - oh < tilesMin) { oh = Math.max(160, avail - tilesMin); ow = oh * (1400 / 924); }
   r.style.setProperty("--leftw", leftw + "px");
   r.style.setProperty("--officeh", Math.round(oh) + "px");
   var of = document.querySelector(".office");
@@ -684,7 +685,7 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 25;
+var APP_VER = 26;
 document.getElementById("ver").textContent = "v" + APP_VER;
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
