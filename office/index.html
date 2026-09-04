@@ -443,6 +443,7 @@ if (TTS_OK) {
   var tb = document.getElementById("ttsauto");
   if (tb) {
     tb.hidden = false;
+    setTimeout(function(){ if (typeof fitLayout === "function") fitLayout(); }, 0);   /* 見出しが1段高くなるぶんを反映 */
     try { ttsAuto = localStorage.getItem("office_tts") === "1"; } catch(e){}
     tb.className = "ttsauto" + (ttsAuto ? " on" : ""); tb.textContent = "🔊 自動読み上げ " + (ttsAuto ? "ON" : "OFF");
     tb.onclick = function(){
@@ -1168,7 +1169,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 66;
+var APP_VER = 67;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
