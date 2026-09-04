@@ -111,6 +111,7 @@
   .pick.done{background:#8aa79a;border-color:#8aa79a}
   @media (prefers-color-scheme:dark){ .copy{background:#22392f} }
   .bub b{font-weight:700}
+  .bub a{color:var(--accent);text-decoration:underline;word-break:break-all}
   .refresh{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;cursor:pointer;margin-left:auto;padding:6px}
   .empty{color:var(--sub);font-size:13px;text-align:center;margin-top:30px;line-height:1.7}
   .newpill{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--ch) + 14px);z-index:3;
@@ -720,7 +721,16 @@ function drawSeats(){
 }
 function drawGridQuiet(){ if (!document.getElementById("room").classList.contains("on")) drawGrid(); }
 function md(t){
-  return esc(t).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  var h = esc(t).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  /* [文字](URL) → リンク */
+  h = h.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, function(_, a, u){
+    return '<a href="' + u + '" target="_blank" rel="noopener">' + a + '</a>';
+  });
+  /* 生のURL（すでにリンクになっていないもの）→ リンク。末尾の句読点や閉じ括弧は含めない */
+  h = h.replace(/(^|[^"'>=])(https?:\/\/[^\s<]+?)(?=[\s<）」。、]|$)/g, function(_, pre, u){
+    return pre + '<a href="' + u + '" target="_blank" rel="noopener">' + u + '</a>';
+  });
+  return h;
 }
 var CHOICE_EMOJI = ["🇦","🇧","🇨","🇩","🇪"];
 function parseChoices(t){
@@ -811,7 +821,7 @@ document.getElementById("newpill").onclick = function(){ var l = document.getEle
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 45;
+var APP_VER = 46;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
