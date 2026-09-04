@@ -23,6 +23,19 @@
   .dot{width:9px;height:9px;border-radius:50%;background:#bbb}
   .dot.ok{background:#2ecc71} .dot.ng{background:var(--warn)}
   main{padding:14px 16px 40px}
+  .office{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);
+    margin-bottom:14px;background:var(--card)}
+  .office img{display:block;width:100%}
+  .seat{position:absolute;transform:translate(-50%,-50%);width:13%;height:17%;border:0;
+    background:transparent;border-radius:14%;cursor:pointer;padding:0}
+  .seat:active{background:rgba(47,111,78,.16)}
+  .seat .tag{position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);white-space:nowrap;
+    background:rgba(255,255,255,.9);color:#1d2430;border-radius:999px;padding:1px 6px;
+    font-size:clamp(8px,2.3vw,12px);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.16)}
+  .seat .sdot{position:absolute;left:50%;top:-3px;transform:translateX(-50%);width:8px;height:8px;
+    border-radius:50%;background:#cfd6dd;box-shadow:0 0 0 2px #fff}
+  .seat.live .sdot{background:#2ecc71}
+  .seat.none .tag{opacity:.6}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px}
   .tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 13px 12px;
     text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%}
@@ -84,11 +97,14 @@
 </head>
 <body>
 <header>
-  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v4</span></h1>
+  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v5</span></h1>
   <div class="lamp"><span class="dot" id="dot"></span><span id="lamp">確認中…</span></div>
 </header>
 
 <main>
+  <div class="office" id="office">
+    <img src="office_bg.jpg" alt="AIオフィス" id="bg">
+  </div>
   <div class="grid" id="grid"></div>
 </main>
 
@@ -122,14 +138,16 @@ var INBOX = "ai_office_inbox", STATUS = "ai_office_status", FEED = "ai_office_fe
 var feed = {rooms:{}}, feedTimer = null;
 
 var STAFF = [
-  {id:"1532175887494025398", nm:"ジニー", role:"ながおか探検録"},
-  {id:"1532176037109174503", nm:"ジョー", role:"経理・会計"},
-  {id:"1532176144999252038", nm:"リー",   role:"広告・動画"},
-  {id:"1532176222946197635", nm:"コン",   role:"LINE秘書"},
-  {id:"1542160237723648021", nm:"ずんだ", role:"柿川亭アプリ"},
-  {id:"1542160436487528509", nm:"さくら", role:"山形出店"},
-  {id:"1532724627934154842", nm:"ポム",   role:"AI事業"},
-  {id:"1517471809392476282", nm:"バウ本部", role:"マーケ・全社"}
+  {id:"1532176222946197635", nm:"コン",   role:"LINE秘書",       x:16.8, y:28.6},
+  {id:"1532175887494025398", nm:"ジニー", role:"ながおか探検録", x:41.1, y:25.2},
+  {id:"1532176144999252038", nm:"リー",   role:"広告・動画",     x:67.1, y:27.6},
+  {id:"1532176037109174503", nm:"ジョー", role:"経理・会計",     x:91.1, y:29.0},
+  {id:"1532724627934154842", nm:"ポム",   role:"AI事業",         x:27.5, y:60.0},
+  {id:null,                  nm:"セレン", role:"リリース担当",   x:48.2, y:59.0},
+  {id:null,                  nm:"かねつぐ", role:"お客様窓口",   x:67.9, y:59.0},
+  {id:"1517471809392476282", nm:"バウ本部", role:"マーケ・全社", x:87.9, y:65.7},
+  {id:"1542160237723648021", nm:"ずんだ", role:"柿川亭アプリ",   x:32.9, y:86.7},
+  {id:"1542160436487528509", nm:"さくら", role:"山形出店",       x:53.2, y:87.1}
 ];
 
 /* ---------- Firebase（匿名ログイン＋Firestore REST） ---------- */
@@ -210,7 +228,7 @@ function pushHist(room, item){
 /* ---------- 一覧 ---------- */
 function drawGrid(){
   var g = document.getElementById("grid"); g.innerHTML = "";
-  STAFF.forEach(function(s){
+  STAFF.filter(function(x){ return x.id; }).forEach(function(s){
     var rows = (feed.rooms && feed.rooms[s.id]) || [];
     var h = hist(s.id), last = h.length ? h[h.length-1] : null;
     if (rows.length) {
@@ -387,8 +405,26 @@ document.getElementById("send").onclick = function(){
 /* ---------- 返事の取り込み（PCの受け取り係がDiscordを読んで置いてくれる） ---------- */
 function loadFeed(){
   return readDoc(FEED).then(function(d){
-    if (d && d.rooms) { feed = d; if (cur) drawLog(); drawGridQuiet(); }
+    if (d && d.rooms) { feed = d; if (cur) drawLog(); drawGridQuiet(); drawSeats(); }
   }).catch(function(){});
+}
+function drawSeats(){
+  var o = document.getElementById("office");
+  Array.prototype.forEach.call(o.querySelectorAll(".seat"), function(e){ e.remove(); });
+  STAFF.forEach(function(st){
+    if (st.x == null) return;
+    var b = document.createElement("button");
+    b.className = "seat" + (st.id ? "" : " none");
+    b.style.left = st.x + "%"; b.style.top = st.y + "%";
+    var rows = (st.id && feed.rooms && feed.rooms[st.id]) || [];
+    if (rows.length) b.className += " live";
+    b.innerHTML = '<span class="sdot"></span><span class="tag">' + st.nm + '</span>';
+    b.onclick = function(){
+      if (!st.id) { alert(st.nm + "さんの部屋は、まだDiscordに作っていません。作るならmasaの一声で用意します。"); return; }
+      openRoom(st);
+    };
+    o.appendChild(b);
+  });
 }
 function drawGridQuiet(){ if (!document.getElementById("room").classList.contains("on")) drawGrid(); }
 function md(t){
@@ -409,7 +445,7 @@ function lamp(){
   });
 }
 document.getElementById("reload").onclick = loadFeed;
-drawGrid(); lamp(); loadFeed(); setInterval(lamp, 20000);
+drawGrid(); drawSeats(); lamp(); loadFeed(); setInterval(lamp, 20000);
 </script>
 </body>
 </html>
