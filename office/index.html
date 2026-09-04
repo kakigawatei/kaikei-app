@@ -111,6 +111,9 @@
   .pick.done{background:#8aa79a;border-color:#8aa79a}
   @media (prefers-color-scheme:dark){ .copy{background:#22392f} }
   .bub b{font-weight:700}
+  .bub{content-visibility:auto;contain-intrinsic-size:auto 120px}
+  .bub .imgwrap img{min-height:120px;background:#e9e6df}
+  .more{display:block;margin:6px auto 10px;padding:8px 16px;border:1px solid #cfcac0;border-radius:999px;background:#fff;color:#444;font-size:13px}
   .bub a{color:var(--accent);text-decoration:underline;word-break:break-all}
   .refresh{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;cursor:pointer;margin-left:auto;padding:6px}
   .empty{color:var(--sub);font-size:13px;text-align:center;margin-top:30px;line-height:1.7}
@@ -377,9 +380,21 @@ function openRoom(s){
   if (feedTimer) clearInterval(feedTimer);
   feedTimer = setInterval(loadFeed, 15000);
 }
+var LOG_STEP = 60;            /* 一度に描く件数 */
+var logShown = {};            /* 部屋ごとに何件まで描いているか */
+var lastLogKey = "";          /* 直前に描いた内容の指紋（同じなら描き直さない） */
 function drawLog(){
   var l = document.getElementById("log");
-  var rows = (feed.rooms && feed.rooms[cur.id]) || [];
+  var allRows = (feed.rooms && feed.rooms[cur.id]) || [];
+  var lim = logShown[cur.id] || LOG_STEP;
+  var start = Math.max(0, allRows.length - lim);
+  var rows = allRows.slice(start);
+  /* 内容が変わっていなければ描き直さない（15秒ごとの更新で画像が読み直されるのを防ぐ） */
+  var key = cur.id + "|" + start + "|" + allRows.length + "|" + rows.map(function(m){ return m.id + ":" + (m.text || "").length + ":" + (m.img || []).length; }).join(",") +
+    "|" + hist(cur.id).map(function(m){ return m.ts + ":" + (m.ok ? 1 : 0); }).join(",");
+  if (key === lastLogKey && !forceBottom && l.innerHTML) return;
+  if (key === lastLogKey && forceBottom) { l.scrollTop = l.scrollHeight; hideNew(); forceBottom = false; return; }
+  lastLogKey = key;
   var html = rows.map(function(m, i){
     var imgs = (m.img || []).map(function(u){
       return '<span class="imgwrap"><img src="' + u + '" alt="" loading="lazy" decoding="async">' +
@@ -405,10 +420,18 @@ function drawLog(){
       (ths.length ? '<div class="pics">' + ths.map(function(u){ return '<img src="' + u + '" alt="">'; }).join("") + '</div>' : "") +
       esc(m.text) + '<span class="t">' + when(m.ts) + (m.ok ? " ・届いた" : " ・送信中") + '</span></div>');
   });
+  if (start > 0) html.unshift('<button class="more" id="logmore">↑ 前の ' + Math.min(LOG_STEP, start) + ' 件を見る（残り ' + start + ' 件）</button>');
   var atBottom = (l.scrollHeight - l.scrollTop - l.clientHeight) < 60 || !l.innerHTML;
-  var keepTop = l.scrollTop;
+  var keepTop = l.scrollTop, keepH = l.scrollHeight;
   l.innerHTML = html.length ? html.join("")
     : '<div class="empty">まだやり取りがありません。<br>下の欄に打つか、マイクで話しかけてください。</div>';
+  var mb = document.getElementById("logmore");
+  if (mb) mb.onclick = function(){
+    logShown[cur.id] = (logShown[cur.id] || LOG_STEP) + LOG_STEP;
+    var before = l.scrollHeight;
+    drawLog();
+    l.scrollTop = l.scrollTop + (l.scrollHeight - before);   /* 見ていた位置を保つ */
+  };
   Array.prototype.forEach.call(l.querySelectorAll(".bub img"), function(im){
     im.onclick = function(){ im.className = im.className ? "" : "big"; };
   });
@@ -831,11 +854,11 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = function(){ feedSig = ""; forceBottom = true; loadFeed(); };
-document.getElementById("newpill").onclick = function(){ var l = document.getElementById("log"); l.scrollTop = l.scrollHeight; hideNew(); };
+document.getElementById("newpill").onclick = function(){ var l = document.getElementById("log"); l.scrollTop = l.scrollHeight; hideNew(); setTimeout(function(){ l.scrollTop = l.scrollHeight; }, 250); };
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 47;
+var APP_VER = 48;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
