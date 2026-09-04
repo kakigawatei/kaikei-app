@@ -49,10 +49,11 @@
   .bub .t{display:block;font-size:10.5px;color:var(--sub);margin-top:4px}
   .bub.them{align-self:flex-start;background:var(--card);border:1px solid var(--line)}
   .bub{-webkit-user-select:text;user-select:text}
-  .copy{display:inline-block;margin-top:6px;border:1px solid var(--line);background:transparent;
-    color:var(--accent);font:inherit;font-size:11.5px;font-weight:700;border-radius:999px;
-    padding:3px 11px;cursor:pointer}
-  .copy.done{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .copy{display:block;width:100%;margin-top:9px;border:1px solid var(--accent);background:#eaf5ef;
+    color:var(--accent);font:inherit;font-size:13.5px;font-weight:700;border-radius:10px;
+    padding:9px 12px;cursor:pointer;text-align:center}
+  .copy.done{background:var(--accent);color:#fff}
+  @media (prefers-color-scheme:dark){ .copy{background:#22392f} }
   .bub b{font-weight:700}
   .refresh{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;cursor:pointer;margin-left:auto;padding:6px}
   .empty{color:var(--sub);font-size:13px;text-align:center;margin-top:30px;line-height:1.7}
@@ -83,7 +84,7 @@
 </head>
 <body>
 <header>
-  <h1>AIオフィス</h1>
+  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v4</span></h1>
   <div class="lamp"><span class="dot" id="dot"></span><span id="lamp">確認中…</span></div>
 </header>
 
@@ -254,7 +255,7 @@ function drawLog(){
   var rows = (feed.rooms && feed.rooms[cur.id]) || [];
   var html = rows.map(function(m, i){
     var imgs = (m.img || []).map(function(u){ return '<img src="' + u + '" alt="">'; }).join("");
-    var btn = (m.me && m.text) ? '<button class="copy" data-i="' + i + '">コピー</button>' : "";
+    var btn = (m.me && m.text) ? '<button class="copy" data-i="' + i + '">📋 この文をコピー</button>' : "";
     return '<div class="bub ' + (m.me ? "them" : "") + '">' + imgs + md(m.text) + btn +
       '<span class="t">' + when(tsOf(m.ts)) + (m.me ? " ・" + cur.nm : "") + '</span></div>';
   });
@@ -278,8 +279,8 @@ function drawLog(){
   l.scrollTop = l.scrollHeight;
 }
 function copyText(t, btn){
-  function done(){ btn.textContent = "コピーしました"; btn.className = "copy done";
-    setTimeout(function(){ btn.textContent = "コピー"; btn.className = "copy"; }, 1600); }
+  function done(){ btn.textContent = "✅ コピーしました"; btn.className = "copy done";
+    setTimeout(function(){ btn.textContent = "📋 この文をコピー"; btn.className = "copy"; }, 1800); }
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(t).then(done, function(){ fallback(t, done); });
   } else { fallback(t, done); }
