@@ -80,7 +80,7 @@
   .badge.done{background:#e6f3ec;color:var(--accent)}
 
   /* 会話画面 */
-  #room{display:none;position:fixed;inset:0;z-index:20;background:var(--bg);flex-direction:column}
+  #room{display:none;position:fixed;left:0;right:0;top:0;bottom:var(--kb, 0px);z-index:20;background:var(--bg);flex-direction:column}
   #room.on{display:flex}
   .rhead{display:flex;align-items:center;gap:10px;max-width:820px;width:100%;margin:0 auto;padding:calc(env(safe-area-inset-top) + 12px) 14px 10px;
     border-bottom:1px solid var(--line);background:var(--bg)}
@@ -111,6 +111,10 @@
   .pick.done{background:#8aa79a;border-color:#8aa79a}
   @media (prefers-color-scheme:dark){ .copy{background:#22392f} }
   .bub b{font-weight:700}
+  body.kbd .office{display:none}
+  body.kbd .grid{display:none}
+  .bub a.file{display:inline-block;margin:4px 6px 4px 0;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);text-decoration:none;font-size:13px}
+  .bub a.file:before{content:"📎 "}
   .bub{content-visibility:auto;contain-intrinsic-size:auto 120px}
   .bub .imgwrap img{min-height:120px;background:#e9e6df}
   .more{display:block;margin:6px auto 10px;padding:8px 16px;border:1px solid #cfcac0;border-radius:999px;background:#fff;color:#444;font-size:13px}
@@ -155,7 +159,7 @@
   /* パソコン＝3段構え: ヘッダー ／ 左オフィス＋右会話 ／ 下いっぱいの入力欄 */
   @media (min-width:900px){
     body{overflow:hidden}
-    main{position:fixed;left:0;top:var(--hh);bottom:var(--ch);width:var(--leftw);max-width:none;
+    main{position:fixed;left:0;top:var(--hh);bottom:calc(var(--ch) + var(--kb, 0px));width:var(--leftw);max-width:none;
       padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
     .office{margin:0 auto;flex:0 0 auto;min-height:0;width:100%;height:var(--officeh)}
     .office #bg{width:100%;height:100%;max-width:none;max-height:none}
@@ -173,7 +177,7 @@
     .tile .role{display:block;font-size:10px;margin-top:1px}
     .tile .last{font-size:10.5px;margin-top:2px;min-height:0;-webkit-line-clamp:2;line-height:1.35}
     .badge{display:none}
-    #room.on{position:fixed;left:var(--leftw);right:0;top:var(--hh);bottom:var(--ch);width:auto;height:auto;
+    #room.on{position:fixed;left:var(--leftw);right:0;top:var(--hh);bottom:calc(var(--ch) + var(--kb, 0px));width:auto;height:auto;
       border-left:1px solid var(--line);box-shadow:none}
     .seat .tag{padding:2px 8px 2px 6px;border-radius:9px}
     .seat .rl{display:block}
@@ -185,7 +189,7 @@
     .pick{font-size:12.5px;padding:8px 11px}
     .hint{display:none}
     .thumb{max-width:none}
-    .composer{position:fixed;left:0;right:0;bottom:0;height:auto;max-width:none;margin:0;
+    .composer{position:fixed;left:0;right:0;bottom:var(--kb, 0px);height:auto;max-width:none;margin:0;
       z-index:21;border-top:1px solid var(--line);align-items:center;padding:12px 16px}
     textarea{max-height:84px;font-size:15px}
     .send{padding:13px 26px;font-size:15px}
@@ -396,7 +400,7 @@ function drawLog(){
   var start = Math.max(0, allRows.length - lim);
   var rows = allRows.slice(start);
   /* 内容が変わっていなければ描き直さない（15秒ごとの更新で画像が読み直されるのを防ぐ） */
-  var key = cur.id + "|" + start + "|" + allRows.length + "|" + rows.map(function(m){ return m.id + ":" + (m.text || "").length + ":" + (m.img || []).length; }).join(",") +
+  var key = cur.id + "|" + start + "|" + allRows.length + "|" + rows.map(function(m){ return m.id + ":" + (m.text || "").length + ":" + (m.img || []).length + ":" + (m.files || []).length; }).join(",") +
     "|" + hist(cur.id).map(function(m){ return m.ts + ":" + (m.ok ? 1 : 0); }).join(",");
   if (key === lastLogKey && !forceBottom && l.innerHTML) return;
   if (key === lastLogKey && forceBottom) { l.scrollTop = l.scrollHeight; hideNew(); forceBottom = false; return; }
@@ -407,6 +411,9 @@ function drawLog(){
              '<button class="copy img" data-url="' + u + '" title="画像をコピー">🖼</button></span>';
     }).join("");
     if ((m.img || []).length > 1) imgs = '<div class="pics">' + imgs + '</div>';
+    imgs += (m.files || []).map(function(f){
+      return '<a class="file" href="' + f.url + '" target="_blank" rel="noopener">' + esc(f.name || "ファイル") + (f.size ? ' <small>(' + Math.round(f.size / 1024) + 'KB)</small>' : '') + '</a>';
+    }).join("");
     var btn = (m.me && m.text) ? '<div class="tools"><button class="copy" data-i="' + i + '" title="この文をコピー">📋</button></div>' : "";
     var ch = m.me ? parseChoices(m.text) : [];
     var chHtml = ch.map(function(c){
@@ -827,17 +834,27 @@ function lamp(){
     document.getElementById("lamp").textContent = "通信できません";
   });
 }
+function viewH(){
+  var vv = window.visualViewport;
+  return (vv && vv.height) ? Math.round(vv.height) : window.innerHeight;
+}
 function fitLayout(){
   var h = document.querySelector("header");
   var c = document.querySelector(".composer");
   var r = document.documentElement;
+  /* キーボードが出ている間は、固定パネル（会話・入力欄）をキーボードの高さぶん持ち上げる（iPadのSafariはキーボードが画面にかぶさるため） */
+  var VH = viewH();
+  var vv = window.visualViewport;
+  var kb = Math.max(0, window.innerHeight - VH - ((vv && vv.offsetTop) || 0));
+  if (kb > 40) { r.style.setProperty("--kb", kb + "px"); document.body.classList.add("kbd"); window.scrollTo(0, 0); }
+  else { r.style.setProperty("--kb", "0px"); document.body.classList.remove("kbd"); }
   var hh = h ? h.offsetHeight : 76;
   var ch = (c && c.offsetHeight) ? c.offsetHeight : 104;
   r.style.setProperty("--hh", hh + "px");
   r.style.setProperty("--ch", ch + "px");
   if (window.innerWidth < 900) return;
   /* 左の列＝画面の半分。絵は常に列いっぱい(3:2)。一覧は残りの高さにぴったり合わせる */
-  var avail = window.innerHeight - hh - ch - 20 - 8;   /* padding と gap */
+  var avail = viewH() - hh - ch - 20 - 8;   /* padding と gap */
   var leftw = Math.round(window.innerWidth * 0.5);
   var ow = leftw - 24, oh = ow * (924 / 1400);
   var rest = avail - oh;
@@ -881,7 +898,7 @@ document.getElementById("newpill").onclick = function(){ var l = document.getEle
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 49;
+var APP_VER = 50;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
