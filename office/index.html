@@ -31,8 +31,8 @@
     border-radius:10px;padding:7px 11px;display:flex;align-items:center;gap:10px}
   .newver button{border:0;border-radius:8px;background:#6b4e00;color:#fff;font:inherit;font-weight:700;
     padding:5px 11px;cursor:pointer}
-  .lamp{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:1px;background:#cfd6dd}
-  .lamp.free{background:#2ecc71} .lamp.busy{background:#f1c40f} .lamp.wait{background:#e74c3c;box-shadow:0 0 6px #e74c3c}
+  .lp{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:1px;background:#cfd6dd}
+  .lp.free{background:#2ecc71} .lp.busy{background:#f1c40f} .lp.wait{background:#e74c3c;box-shadow:0 0 6px #e74c3c}
   .chip{display:inline-block;font-size:10px;font-weight:700;border-radius:999px;padding:1px 7px;margin-top:6px;margin-right:4px}
   .chip.busy{background:#e8eefc;color:#2c4a9a} .chip.free{background:#e6f3ec;color:var(--accent)}
   .chip.wait{background:#fdecdc;color:#8a3b12}
@@ -144,8 +144,9 @@
     .grid.compact .tile .last{display:none}
     .grid.compact .tile .badge{display:none}
     .grid.compact .tile{padding:4px 9px}
-    .grid.compact .tile .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px}
-    .grid.compact .tile .role{display:block;margin:1px 0 0;font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .grid.compact .tile{padding:3px 8px;justify-content:center}
+    .grid.compact .tile .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;line-height:1.25}
+    .grid.compact .tile .role{display:block;margin:1px 0 0;font-size:9.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .tile{padding:6px 9px;border-radius:9px;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
     .tile .nm{font-size:12px}
     .tile .role{display:block;font-size:10px;margin-top:1px}
@@ -183,7 +184,7 @@
     <div class="waitbox" id="waitbox" hidden></div>
   </div>
   <div class="lamp"><span class="dot" id="dot"></span><span id="lamp">確認中…</span>
-    <span class="legend"><i class="lamp free"></i>手あき <i class="lamp busy"></i>作業中 <i class="lamp wait"></i>返事待ち</span></div>
+    <span class="legend"><i class="lp free"></i>手あき <i class="lp busy"></i>作業中 <i class="lp wait"></i>返事待ち</span></div>
   <div class="newver" id="newver" hidden>新しい版があります <button id="doreload">更新する</button></div>
 </header>
 
@@ -326,7 +327,7 @@ function drawGrid(){
     var md0 = mood(s);
     b.className = "tile " + md0;
     var plain = last ? String(last.text || "").replace(/\*\*/g, "").replace(/\s+/g, " ").trim() : "";
-    b.innerHTML = '<div class="nm"><span class="lamp ' + md0 + '" title="' + MOODJA[md0] + '"></span>' + s.nm +
+    b.innerHTML = '<div class="nm"><span class="lp ' + md0 + '" title="' + MOODJA[md0] + '"></span>' + s.nm +
       '<span class="role">' + s.role + '</span></div>' +
       '<div class="last">' + (last ? ((last.thumb ? "📷 " : "") + (esc(plain).slice(0,60) || "写真")) : "—") + '</div>' +
       (last ? '<span class="badge ' + (last.ok ? "done" : "sending") + '">' +
@@ -706,8 +707,10 @@ function fitLayout(){
   var cols = 2, rows = 5;
   if ((rest - 4 * 6) / 5 < 50) { cols = 5; rows = 2; }
   var th = (rest - (rows - 1) * 6) / rows;
-  if (th < 36) { /* 極端に低い窓: 絵を少しだけ譲る */
-    oh = Math.max(140, avail - (36 * rows + (rows - 1) * 6));
+  var MIN_TH = 46;                                   /* 名前＋役職の2行が読める最低の高さ */
+  if (th < MIN_TH) {
+    oh = Math.max(140, avail - (MIN_TH * rows + (rows - 1) * 6));
+    ow = oh * (1400 / 924);
     th = (avail - oh - (rows - 1) * 6) / rows;
   }
   r.style.setProperty("--leftw", leftw + "px");
@@ -717,13 +720,13 @@ function fitLayout(){
   var g = document.getElementById("grid");
   if (g) g.className = "grid" + (th < 62 ? " compact" : "");
   var of = document.querySelector(".office");
-  if (of) of.style.width = "";
+  if (of) of.style.width = (ow < leftw - 24) ? Math.round(ow) + "px" : "";
 }
 window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 34;
+var APP_VER = 35;
 document.getElementById("ver").textContent = "v" + APP_VER;
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
