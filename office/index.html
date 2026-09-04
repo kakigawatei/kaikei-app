@@ -822,10 +822,10 @@ function collectTasks(){
       if (Date.now() - tsOf(m.ts) > 7 * 24 * 3600 * 1000) return;
       m.text.split("\n").forEach(function(line, i){
         line = line.trim();
-        if (line.charAt(0) !== "📌") return;
+        if (line.indexOf("📌") !== 0) return;
         var id = "t" + m.id + "_" + i;
         if (taskDone[id]) return;
-        var lb = line.slice(1).replace(/^\s*(masa|masaさん|masaへ)\s*[:：]\s*/, "").trim();
+        var lb = line.slice("📌".length).replace(/^\s*(masa|masaさん|masaへ)\s*[:：]\s*/, "").trim();
         out.push({kind:"todo", id:id, st:st, label:lb.slice(0, 48), ts:tsOf(m.ts)});
       });
     });
@@ -1088,7 +1088,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 61;
+var APP_VER = 62;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
