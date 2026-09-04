@@ -618,7 +618,7 @@ function drawSeats(){
     if (rows.length) b.className += " live";
     var md1 = mood(st);
     if (md1 === "wait") b.className += " wait";
-    var fh = st.face ? '<img class="face" src="faces/' + st.face + "_" + md1 + '.png" alt="">' : "";
+    var fh = st.face ? '<img class="face" src="faces/' + st.face + "_" + md1 + '.png?v=' + APP_VER + '" alt="">' : "";
     b.innerHTML = fh + '<span class="tag"><span class="sdot"></span>' + st.nm + '</span>';
     b.onclick = function(){
       if (!st.id) { alert(st.nm + "さんの部屋は、まだDiscordに作っていません。作るならmasaの一声で用意します。"); return; }
@@ -684,7 +684,7 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 23;
+var APP_VER = 24;
 document.getElementById("ver").textContent = "v" + APP_VER;
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
