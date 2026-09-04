@@ -116,6 +116,7 @@
   /* 入力中は入力欄を上へ（iPadのキーボードに隠れないように） */
   body.typing #room{top:var(--ch);bottom:0}
   body.typing .composer{position:fixed;left:0;right:0;top:0;bottom:auto;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+  body.pin .composer{box-shadow:none}
   body.kbd .office{display:none}
   body.kbd .grid{display:none}
   .bub a.file{display:inline-block;margin:4px 6px 4px 0;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);text-decoration:none;font-size:13px}
@@ -916,7 +917,11 @@ if (window.visualViewport) {
 }
 document.getElementById("box").addEventListener("blur", refit);
 var TOUCH = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+/* iPad（タッチで横幅が広い）は最初から入力欄を上に固定（masa 2026-09-04） */
+var PIN = TOUCH && window.innerWidth >= 900;
+if (PIN) { document.body.classList.add("typing"); document.body.classList.add("pin"); fitLayout(); }
 document.addEventListener("touchstart", function(e){
+  if (document.body.classList.contains("pin")) return;
   if (!document.body.classList.contains("typing")) return;
   if (e.target.closest && e.target.closest(".composer")) return;
   var box = document.getElementById("box");
@@ -938,6 +943,7 @@ document.getElementById("box").addEventListener("focus", function(){
 document.getElementById("box").addEventListener("blur", function(){
   /* 「送る」や🎙を押した瞬間に戻すと押し損ねるので、少し待ってから戻す */
   setTimeout(function(){
+    if (document.body.classList.contains("pin")) return;
     if (document.activeElement === document.getElementById("box")) return;
     if (micOn) return;
     document.body.classList.remove("typing"); fitLayout();
@@ -945,7 +951,7 @@ document.getElementById("box").addEventListener("blur", function(){
 });
 
 var micOn = false;
-var APP_VER = 54;
+var APP_VER = 55;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
