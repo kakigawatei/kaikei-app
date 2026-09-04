@@ -578,7 +578,9 @@ function mood(st){
   var last = rows[rows.length-1];
   if (!last.me) return "busy";                       /* masaが投げた直後＝私が動いている */
   var t = (last.text || "").trim();
-  if (/[？?]$/.test(t) || parseChoices(t).length || /どちらにしますか|選んでください|決めてください|教えてください/.test(t)) return "wait";
+  /* 3日より前の質問は「返事待ち」に数えない（放置された古い問いで一覧を汚さない） */
+  if (Date.now() - tsOf(last.ts) > 3 * 24 * 3600 * 1000) return "free";
+  if (/[？?]$/.test(t) || parseChoices(t).length || /どちらにしますか|選んでください|決めてください/.test(t)) return "wait";
   return "free";
 }
 function drawSeats(){
@@ -657,7 +659,7 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 20;
+var APP_VER = 21;
 document.getElementById("ver").textContent = "v" + APP_VER;
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
