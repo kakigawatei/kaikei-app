@@ -100,6 +100,9 @@
   .copy:active{transform:scale(.94)}
   .copy.done{background:var(--accent);border-color:var(--accent);color:#fff;font-size:13px}
   .imgwrap{position:relative;display:inline-block;max-width:100%}
+  .pics{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px}
+  .pics img{max-height:150px;width:auto;margin:0}
+  .pics .imgwrap{flex:0 1 auto}
   .imgwrap .copy.img{position:absolute;right:6px;bottom:10px;opacity:.92}
   .pick{display:block;width:100%;margin-top:7px;border:1px solid var(--accent);background:var(--accent);
     color:#fff;font:inherit;font-size:13.5px;font-weight:700;border-radius:10px;padding:10px 12px;
@@ -381,6 +384,7 @@ function drawLog(){
       return '<span class="imgwrap"><img src="' + u + '" alt="" loading="lazy" decoding="async">' +
              '<button class="copy img" data-url="' + u + '" title="画像をコピー">🖼</button></span>';
     }).join("");
+    if ((m.img || []).length > 1) imgs = '<div class="pics">' + imgs + '</div>';
     var btn = (m.me && m.text) ? '<div class="tools"><button class="copy" data-i="' + i + '" title="この文をコピー">📋</button></div>' : "";
     var ch = m.me ? parseChoices(m.text) : [];
     var chHtml = ch.map(function(c){
@@ -395,8 +399,9 @@ function drawLog(){
   hist(cur.id).forEach(function(m){
     if (Date.now() - m.ts > 120000) return;
     if (m.text && seen.indexOf(m.text.trim()) >= 0) return;
-    html.push('<div class="bub">' + (m.thumb ? '<img src="' + m.thumb + '" alt="">' : "") +
-      (m.n > 1 ? '<span class="t">ほか' + (m.n - 1) + '枚</span>' : "") +
+    var ths = (m.thumbs && m.thumbs.length) ? m.thumbs : (m.thumb ? [m.thumb] : []);
+    html.push('<div class="bub">' +
+      (ths.length ? '<div class="pics">' + ths.map(function(u){ return '<img src="' + u + '" alt="">'; }).join("") + '</div>' : "") +
       esc(m.text) + '<span class="t">' + when(m.ts) + (m.ok ? " ・届いた" : " ・送信中") + '</span></div>');
   });
   var atBottom = (l.scrollHeight - l.scrollTop - l.clientHeight) < 60 || !l.innerHTML;
@@ -617,7 +622,8 @@ document.getElementById("send").onclick = function(){
   var btn = this; btn.disabled = true;
   var shots = pending; pending = []; drawThumbs();
   var mid = "m" + Date.now() + Math.floor(Math.random()*1000);
-  var item = {id:mid, text:text, ts:Date.now(), ok:false, thumb: shots.length ? shots[0].thumb : null, n: shots.length};
+  var item = {id:mid, text:text, ts:Date.now(), ok:false, thumb: shots.length ? shots[0].thumb : null,
+              thumbs: shots.map(function(x){ return x.thumb; }), n: shots.length};
   pushHist(cur.id, item); box.value = ""; box.style.height = "auto"; forceBottom = true; drawLog();
   try { var sent = JSON.parse(localStorage.getItem("office_sent") || "[]"); sent.push(mid); localStorage.setItem("office_sent", JSON.stringify(sent.slice(-50))); } catch(e){}
   if (typeof fitLayout === "function") setTimeout(fitLayout, 0);
@@ -804,7 +810,7 @@ document.getElementById("newpill").onclick = function(){ var l = document.getEle
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 42;
+var APP_VER = 43;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
