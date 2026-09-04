@@ -70,6 +70,11 @@
     padding:9px 12px;cursor:pointer;text-align:center}
   .copy.done{background:var(--accent);color:#fff}
   .copy.img{margin-top:6px;margin-bottom:4px;font-size:12.5px;padding:7px 12px}
+  .pick{display:block;width:100%;margin-top:7px;border:1px solid var(--accent);background:var(--accent);
+    color:#fff;font:inherit;font-size:13.5px;font-weight:700;border-radius:10px;padding:10px 12px;
+    cursor:pointer;text-align:left}
+  .pick:disabled{opacity:.55}
+  .pick.done{background:#8aa79a;border-color:#8aa79a}
   @media (prefers-color-scheme:dark){ .copy{background:#22392f} }
   .bub b{font-weight:700}
   .refresh{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;cursor:pointer;margin-left:auto;padding:6px}
@@ -86,7 +91,8 @@
   .pic{border:1px solid var(--line);background:var(--card);border-radius:12px;font-size:19px;
     padding:8px 11px;cursor:pointer;line-height:1.2}
   .pic:disabled{opacity:.45}
-  .bub img{display:block;max-width:100%;border-radius:9px;margin-bottom:5px}
+  .bub img{display:block;max-width:100%;max-height:210px;width:auto;border-radius:9px;margin-bottom:5px;cursor:zoom-in}
+  .bub img.big{max-height:none;width:100%}
   .thumb{padding:0 12px 8px;display:flex;gap:8px;align-items:center;font-size:12px;color:var(--sub)}
   .thumb img{height:52px;border-radius:8px;border:1px solid var(--line)}
   .thumb button{border:0;background:none;color:var(--warn);font:inherit;cursor:pointer}
@@ -129,7 +135,7 @@
 </head>
 <body>
 <header>
-  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v13</span></h1>
+  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v15</span></h1>
   <div class="lamp"><span class="dot" id="dot"></span><span id="lamp">確認中…</span></div>
 </header>
 
@@ -309,7 +315,12 @@ function drawLog(){
              '<button class="copy img" data-url="' + u + '">🖼 画像をコピー</button>';
     }).join("");
     var btn = (m.me && m.text) ? '<button class="copy" data-i="' + i + '">📋 この文をコピー</button>' : "";
-    return '<div class="bub ' + (m.me ? "them" : "") + '">' + imgs + md(m.text) + btn +
+    var ch = m.me ? parseChoices(m.text) : [];
+    var chHtml = ch.map(function(c){
+      return '<button class="pick" data-msg="' + m.id + '" data-emoji="' + encodeURIComponent(c.emoji) +
+             '">' + c.letter + " … " + esc(c.label) + '</button>';
+    }).join("");
+    return '<div class="bub ' + (m.me ? "them" : "") + '">' + imgs + md(m.text) + chHtml + btn +
       '<span class="t">' + when(tsOf(m.ts)) + (m.me ? " ・" + cur.nm : "") + '</span></div>';
   });
   /* まだDiscordに写っていない直近の送信ぶんを足す */
@@ -322,6 +333,17 @@ function drawLog(){
   });
   l.innerHTML = html.length ? html.join("")
     : '<div class="empty">まだやり取りがありません。<br>下の欄に打つか、マイクで話しかけてください。</div>';
+  Array.prototype.forEach.call(l.querySelectorAll(".bub img"), function(im){
+    im.onclick = function(){ im.className = im.className ? "" : "big"; };
+  });
+  Array.prototype.forEach.call(l.querySelectorAll(".pick"), function(b){
+    b.onclick = function(ev){
+      ev.stopPropagation();
+      Array.prototype.forEach.call(b.parentNode.querySelectorAll(".pick"), function(x){ x.disabled = true; });
+      b.className = "pick done"; b.textContent = "\u2705 " + b.textContent;
+      sendChoice(b.getAttribute("data-msg"), decodeURIComponent(b.getAttribute("data-emoji")));
+    };
+  });
   Array.prototype.forEach.call(l.querySelectorAll(".copy"), function(b){
     b.onclick = function(ev){
       ev.stopPropagation();
@@ -332,6 +354,17 @@ function drawLog(){
     };
   });
   l.scrollTop = l.scrollHeight;
+}
+/* 選択肢を押したら、Discordのその発言に絵文字を付けにいく＝Discordで押したのと同じ扱いになる */
+function sendChoice(msgId, emoji){
+  readDoc(INBOX).then(function(d){
+    var msgs = d.msgs || [];
+    msgs.push({ id:"c" + Date.now() + Math.floor(Math.random()*1000),
+                room:cur.id, name:cur.nm, text:"", ts:Date.now(), pass:pass,
+                react:{msg:msgId, emoji:emoji} });
+    d.msgs = msgs.slice(-100);
+    return writeDoc(INBOX, d);
+  }).catch(function(e){ alert("\u9001\u308c\u307e\u305b\u3093\u3067\u3057\u305f\uff1a" + e.message); });
 }
 function copyText(t, btn){
   function done(){ btn.textContent = "✅ コピーしました"; btn.className = "copy done";
@@ -527,6 +560,21 @@ function drawSeats(){
 function drawGridQuiet(){ if (!document.getElementById("room").classList.contains("on")) drawGrid(); }
 function md(t){
   return esc(t).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+}
+var CHOICE_EMOJI = ["🇦","🇧","🇨","🇩","🇪"];
+function parseChoices(t){
+  var out = [];
+  (t || "").split("\n").forEach(function(line){
+    var s2 = line.trim();
+    for (var i = 0; i < CHOICE_EMOJI.length; i++) {
+      if (s2.indexOf(CHOICE_EMOJI[i]) === 0) {
+        var label = s2.slice(CHOICE_EMOJI[i].length).replace(/\*\*/g, "").trim();
+        label = label.replace(/^[A-E]\s*(\u2026|\.\.\.)?\s*/, "").trim();
+        out.push({emoji: CHOICE_EMOJI[i], letter: "ABCDE".charAt(i), label: label || ("\u9078\u629e\u80a2" + (i+1))});
+      }
+    }
+  });
+  return out;
 }
 function tsOf(iso){ var d = new Date(iso); return isNaN(d) ? Date.now() : d.getTime(); }
 
