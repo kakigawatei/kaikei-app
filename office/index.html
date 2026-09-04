@@ -14,6 +14,7 @@
     --line:#e4e0d7; --accent:#2f6f4e; --warn:#c0392b;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
     -webkit-text-size-adjust:100%}
@@ -38,7 +39,7 @@
   main{padding:14px 16px 40px;max-width:1000px;margin:0 auto}
   .office{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);
     margin:0 auto 14px;background:var(--card);width:fit-content;max-width:100%}
-  .office img{display:block;width:100%;max-width:100%}
+  .office #bg{display:block;width:100%;max-width:100%}
   .face{position:absolute;left:50%;top:-14%;transform:translateX(-50%);width:46%;
     pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))}
   .seat{position:absolute;transform:translate(-50%,-50%);width:13%;height:17%;border:0;
@@ -120,7 +121,7 @@
     main{position:fixed;left:0;top:var(--hh);bottom:var(--ch);width:var(--leftw);max-width:none;
       padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
     .office{margin:0;flex:0 0 auto;min-height:0;width:100%}
-    .office img{width:100%;height:var(--officeh);object-fit:cover;max-width:none;max-height:none}
+    .office #bg{width:100%;height:var(--officeh);object-fit:cover;max-width:none;max-height:none}
     /* 10人ぶんが必ず入るように、2列×5行ぴったりに割り付ける */
     .grid{flex:1 1 auto;min-height:0;overflow:hidden;
       display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(5,1fr);gap:6px}
@@ -576,7 +577,8 @@ function mood(st){
   if (!rows.length) return "free";
   var last = rows[rows.length-1];
   if (!last.me) return "busy";                       /* masaが投げた直後＝私が動いている */
-  if (/[？?]\s*$|ください|どちらに|選んで|教えて|いいですか|ますか/.test(last.text || "")) return "wait";
+  var t = (last.text || "").trim();
+  if (/[？?]$/.test(t) || parseChoices(t).length || /どちらにしますか|選んでください|決めてください|教えてください/.test(t)) return "wait";
   return "free";
 }
 function drawSeats(){
@@ -655,7 +657,7 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 19;
+var APP_VER = 20;
 document.getElementById("ver").textContent = "v" + APP_VER;
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
