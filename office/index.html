@@ -921,11 +921,11 @@ var TOUCH = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
 var PIN = TOUCH && window.innerWidth >= 900;
 if (PIN) { document.body.classList.add("typing"); document.body.classList.add("pin"); fitLayout(); }
 document.addEventListener("touchstart", function(e){
-  if (document.body.classList.contains("pin")) return;
   if (!document.body.classList.contains("typing")) return;
   if (e.target.closest && e.target.closest(".composer")) return;
   var box = document.getElementById("box");
-  if (box) box.blur();
+  if (box && document.activeElement === box) box.blur();      /* キーボードを閉じる（Typelessには閉じるキーが無い） */
+  if (document.body.classList.contains("pin")) return;          /* iPadは上固定のまま */
   setTimeout(function(){ document.body.classList.remove("typing"); fitLayout(); }, 50);
 }, {passive:true});
 ["send", "pic"].forEach(function(id){
@@ -951,7 +951,7 @@ document.getElementById("box").addEventListener("blur", function(){
 });
 
 var micOn = false;
-var APP_VER = 55;
+var APP_VER = 56;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
