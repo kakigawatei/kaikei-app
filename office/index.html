@@ -238,7 +238,6 @@
   <div class="thumb" id="thumb" hidden></div>
   <div class="composer">
     <button class="pic" id="pic" title="写真を送る">📷</button>
-    <button class="pic mic" id="mic" title="話して入力（もう一度押すと止まる）" hidden>🎙</button>
     <input type="file" id="file" accept="image/*" multiple hidden>
     <textarea id="box" rows="1" placeholder="話しかける"></textarea>
     <button class="send" id="send">送る</button>
@@ -917,7 +916,14 @@ if (window.visualViewport) {
 }
 document.getElementById("box").addEventListener("blur", refit);
 var TOUCH = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
-["send", "pic", "mic"].forEach(function(id){
+document.addEventListener("touchstart", function(e){
+  if (!document.body.classList.contains("typing")) return;
+  if (e.target.closest && e.target.closest(".composer")) return;
+  var box = document.getElementById("box");
+  if (box) box.blur();
+  setTimeout(function(){ document.body.classList.remove("typing"); fitLayout(); }, 50);
+}, {passive:true});
+["send", "pic"].forEach(function(id){
   var b = document.getElementById(id);
   if (!b) return;
   b.addEventListener("touchstart", function(e){ e.preventDefault(); b.click(); }, {passive:false});
@@ -938,41 +944,8 @@ document.getElementById("box").addEventListener("blur", function(){
   }, 250);
 });
 
-/* ② 🎙 話して入力（Web Speech API）。対応していない端末ではボタンを出さない */
-var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-var micOn = false, rec = null, micBase = "";
-if (SR) {
-  var micBtn = document.getElementById("mic");
-  micBtn.hidden = false;
-  micBtn.onclick = function(){
-    var box = document.getElementById("box");
-    if (micOn) { try { rec.stop(); } catch(e){} return; }
-    rec = new SR(); rec.lang = "ja-JP"; rec.continuous = true; rec.interimResults = true;
-    micBase = box.value ? (box.value.replace(/\s+$/, "") + "\n") : "";
-    var finals = "";
-    rec.onresult = function(ev){
-      var interim = "";
-      for (var i = ev.resultIndex; i < ev.results.length; i++) {
-        var t = ev.results[i][0].transcript;
-        if (ev.results[i].isFinal) finals += t; else interim += t;
-      }
-      box.value = micBase + finals + interim;
-      box.style.height = "auto"; box.style.height = Math.min(box.scrollHeight, 200) + "px";
-    };
-    rec.onend = function(){ micOn = false; micBtn.className = "pic mic"; box.focus(); };
-    rec.onerror = function(){ micOn = false; micBtn.className = "pic mic"; };
-    try { rec.start(); micOn = true; micBtn.className = "pic mic on"; document.body.classList.add("typing"); fitLayout(); }
-    catch(e){ micOn = false; }
-  };
-}
-document.addEventListener("visibilitychange", function(){ if (!document.hidden) refit(); });
-setTimeout(fitLayout, 60);
-document.getElementById("reload").onclick = function(){ feedSig = ""; forceBottom = true; loadFeed(); };
-document.getElementById("newpill").onclick = function(){ var l = document.getElementById("log"); l.scrollTop = l.scrollHeight; hideNew(); setTimeout(function(){ l.scrollTop = l.scrollHeight; }, 250); };
-if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
-  document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
-}
-var APP_VER = 53;
+var micOn = false;
+var APP_VER = 54;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
