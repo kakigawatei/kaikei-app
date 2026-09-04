@@ -122,6 +122,10 @@
   dialog input{width:100%;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:10px;margin-top:10px}
   dialog button{margin-top:12px;width:100%;padding:11px;border:0;border-radius:10px;background:var(--accent);
     color:#fff;font:inherit;font-weight:700}
+  /* スマホ: オフィス図はスクロールしても上に残す（ヘッダーの直下に固定） */
+  @media (max-width:899px){
+    .office{position:sticky;top:var(--hh);z-index:4;box-shadow:0 6px 14px -8px rgba(0,0,0,.35)}
+  }
   /* パソコン＝3段構え: ヘッダー ／ 左オフィス＋右会話 ／ 下いっぱいの入力欄 */
   @media (min-width:900px){
     body{overflow:hidden}
@@ -713,7 +717,7 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 32;
+var APP_VER = 33;
 document.getElementById("ver").textContent = "v" + APP_VER;
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
