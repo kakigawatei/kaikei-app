@@ -111,6 +111,11 @@
   .pick.done{background:#8aa79a;border-color:#8aa79a}
   @media (prefers-color-scheme:dark){ .copy{background:#22392f} }
   .bub b{font-weight:700}
+  .mic.on{background:#ffe3e3;border-color:#e88;animation:micblink 1s infinite}
+  @keyframes micblink{50%{background:#fff}}
+  /* 入力中は入力欄を上へ（iPadのキーボードに隠れないように） */
+  body.typing #room{top:var(--ch);bottom:0}
+  body.typing .composer{position:fixed;left:0;right:0;top:0;bottom:auto;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.12)}
   body.kbd .office{display:none}
   body.kbd .grid{display:none}
   .bub a.file{display:inline-block;margin:4px 6px 4px 0;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);text-decoration:none;font-size:13px}
@@ -191,6 +196,9 @@
     .thumb{max-width:none}
     .composer{position:fixed;left:0;right:0;bottom:var(--kb, 0px);height:auto;max-width:none;margin:0;
       z-index:21;border-top:1px solid var(--line);align-items:center;padding:12px 16px}
+    body.typing .composer{top:var(--hh);bottom:auto;border-top:0;border-bottom:1px solid var(--line)}
+    body.typing main{top:calc(var(--hh) + var(--ch));bottom:0}
+    body.typing #room.on{top:calc(var(--hh) + var(--ch));bottom:0}
     textarea{max-height:84px;font-size:15px}
     .send{padding:13px 26px;font-size:15px}
     .pic{padding:10px 13px;font-size:21px}
@@ -231,6 +239,7 @@
   <div class="thumb" id="thumb" hidden></div>
   <div class="composer">
     <button class="pic" id="pic" title="写真を送る">📷</button>
+    <button class="pic mic" id="mic" title="話して入力（もう一度押すと止まる）" hidden>🎙</button>
     <input type="file" id="file" accept="image/*" multiple hidden>
     <textarea id="box" rows="1" placeholder="話しかける"></textarea>
     <button class="send" id="send">送る</button>
@@ -907,6 +916,49 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener("scroll", function(){ clearTimeout(vvTimer); vvTimer = setTimeout(refit, 60); });
 }
 document.getElementById("box").addEventListener("blur", refit);
+var TOUCH = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+document.getElementById("box").addEventListener("focus", function(){
+  if (!TOUCH) return;
+  document.body.classList.add("typing");
+  var l = document.getElementById("log");
+  setTimeout(function(){ window.scrollTo(0, 0); fitLayout(); if (l) l.scrollTop = l.scrollHeight; }, 50);
+});
+document.getElementById("box").addEventListener("blur", function(){
+  /* 「送る」や🎙を押した瞬間に戻すと押し損ねるので、少し待ってから戻す */
+  setTimeout(function(){
+    if (document.activeElement === document.getElementById("box")) return;
+    if (micOn) return;
+    document.body.classList.remove("typing"); fitLayout();
+  }, 250);
+});
+
+/* ② 🎙 話して入力（Web Speech API）。対応していない端末ではボタンを出さない */
+var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+var micOn = false, rec = null, micBase = "";
+if (SR) {
+  var micBtn = document.getElementById("mic");
+  micBtn.hidden = false;
+  micBtn.onclick = function(){
+    var box = document.getElementById("box");
+    if (micOn) { try { rec.stop(); } catch(e){} return; }
+    rec = new SR(); rec.lang = "ja-JP"; rec.continuous = true; rec.interimResults = true;
+    micBase = box.value ? (box.value.replace(/\s+$/, "") + "\n") : "";
+    var finals = "";
+    rec.onresult = function(ev){
+      var interim = "";
+      for (var i = ev.resultIndex; i < ev.results.length; i++) {
+        var t = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) finals += t; else interim += t;
+      }
+      box.value = micBase + finals + interim;
+      box.style.height = "auto"; box.style.height = Math.min(box.scrollHeight, 200) + "px";
+    };
+    rec.onend = function(){ micOn = false; micBtn.className = "pic mic"; box.focus(); };
+    rec.onerror = function(){ micOn = false; micBtn.className = "pic mic"; };
+    try { rec.start(); micOn = true; micBtn.className = "pic mic on"; document.body.classList.add("typing"); fitLayout(); }
+    catch(e){ micOn = false; }
+  };
+}
 document.addEventListener("visibilitychange", function(){ if (!document.hidden) refit(); });
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = function(){ feedSig = ""; forceBottom = true; loadFeed(); };
@@ -914,7 +966,7 @@ document.getElementById("newpill").onclick = function(){ var l = document.getEle
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 51;
+var APP_VER = 52;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
