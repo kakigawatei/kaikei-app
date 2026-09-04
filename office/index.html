@@ -9,7 +9,7 @@
 <title>AIオフィス</title>
 <style>
   :root{
-    --hh:76px; --ch:104px; --leftw:38vw; --officeh:300px;
+    --hh:76px; --ch:104px; --leftw:38vw; --officeh:300px; --gcols:2; --grows:5;
     --bg:#f6f4ef; --card:#fff; --ink:#1d2430; --sub:#6b7480;
     --line:#e4e0d7; --accent:#2f6f4e; --warn:#c0392b;
   }
@@ -128,10 +128,13 @@
     .office #bg{width:100%;height:100%;max-width:none;max-height:none}
     /* 10人ぶんが必ず入るように、2列×5行ぴったりに割り付ける */
     .grid{flex:1 1 auto;min-height:0;overflow:hidden;
-      display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(5,1fr);gap:6px}
+      display:grid;grid-template-columns:repeat(var(--gcols,2),1fr);grid-template-rows:repeat(var(--grows,5),1fr);gap:6px}
+    .grid.compact .tile .last{-webkit-line-clamp:1}
+    .grid.compact .tile{padding:4px 9px}
+    .grid.compact .tile .role{display:none}
     .tile{padding:6px 9px;border-radius:9px;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
     .tile .nm{font-size:12px}
-    .tile .role{display:none}
+    .tile .role{display:block;font-size:10px;margin-top:0}
     .tile .last{font-size:10.5px;margin-top:2px;min-height:0;-webkit-line-clamp:2;line-height:1.35}
     .badge{display:none}
     #room.on{position:fixed;left:var(--leftw);right:0;top:var(--hh);bottom:var(--ch);width:auto;height:auto;
@@ -670,22 +673,33 @@ function fitLayout(){
   r.style.setProperty("--hh", hh + "px");
   r.style.setProperty("--ch", ch + "px");
   if (window.innerWidth < 900) return;
-  /* 左の列＝画面の半分。絵は列の幅いっぱい(4:3)。一覧(5行)が入らないときだけ絵を縮める */
+  /* 左の列＝画面の半分。絵は常に列いっぱい(3:2)。一覧は残りの高さにぴったり合わせる */
   var avail = window.innerHeight - hh - ch - 20 - 8;   /* padding と gap */
-  var tilesMin = 5 * 46 + 4 * 6;                       /* 一覧の最低ライン */
   var leftw = Math.round(window.innerWidth * 0.5);
   var ow = leftw - 24, oh = ow * (924 / 1400);
-  if (avail - oh < tilesMin) { oh = Math.max(160, avail - tilesMin); ow = oh * (1400 / 924); }
+  var rest = avail - oh;
+  /* 10人が割り切れる並びだけ使う（空きマスを作らない）: 縦に余裕があれば2列×5行、無ければ5列×2行 */
+  var cols = 2, rows = 5;
+  if ((rest - 4 * 6) / 5 < 50) { cols = 5; rows = 2; }
+  var th = (rest - (rows - 1) * 6) / rows;
+  if (th < 36) { /* 極端に低い窓: 絵を少しだけ譲る */
+    oh = Math.max(140, avail - (36 * rows + (rows - 1) * 6));
+    th = (avail - oh - (rows - 1) * 6) / rows;
+  }
   r.style.setProperty("--leftw", leftw + "px");
   r.style.setProperty("--officeh", Math.round(oh) + "px");
+  r.style.setProperty("--gcols", cols);
+  r.style.setProperty("--grows", rows);
+  var g = document.getElementById("grid");
+  if (g) g.className = "grid" + (th < 62 ? " compact" : "");
   var of = document.querySelector(".office");
-  if (of) of.style.width = Math.round(ow) + "px";
+  if (of) of.style.width = "";
 }
 window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 26;
+var APP_VER = 27;
 document.getElementById("ver").textContent = "v" + APP_VER;
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
