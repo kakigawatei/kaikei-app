@@ -432,7 +432,9 @@ function hideNew(){ var n = document.getElementById("newpill"); if (n) n.hidden 
 function sendChoice(msgId, emoji){
   readDoc(INBOX).then(function(d){
     var msgs = d.msgs || [];
-    msgs.push({ id:"c" + Date.now() + Math.floor(Math.random()*1000),
+    var cid = "c" + Date.now() + Math.floor(Math.random()*1000);
+    try { var sent = JSON.parse(localStorage.getItem("office_sent") || "[]"); sent.push(cid); localStorage.setItem("office_sent", JSON.stringify(sent.slice(-50))); } catch(e){}
+    msgs.push({ id:cid,
                 room:cur.id, name:cur.nm, text:"", ts:Date.now(), pass:pass,
                 react:{msg:msgId, emoji:emoji} });
     d.msgs = msgs.slice(-100);
@@ -600,8 +602,9 @@ document.getElementById("send").onclick = function(){
   var shot = pending; pending = null;
   var t = document.getElementById("thumb"); t.hidden = true; t.innerHTML = "";
   var mid = "m" + Date.now() + Math.floor(Math.random()*1000);
-  var item = {text:text, ts:Date.now(), ok:false, thumb: shot ? shot.thumb : null};
+  var item = {id:mid, text:text, ts:Date.now(), ok:false, thumb: shot ? shot.thumb : null};
   pushHist(cur.id, item); box.value = ""; box.style.height = "auto"; forceBottom = true; drawLog();
+  try { var sent = JSON.parse(localStorage.getItem("office_sent") || "[]"); sent.push(mid); localStorage.setItem("office_sent", JSON.stringify(sent.slice(-50))); } catch(e){}
   if (typeof fitLayout === "function") setTimeout(fitLayout, 0);
 
   var first = shot ? writeDoc("ai_office_img_" + mid, {b64: shot.full}) : Promise.resolve();
@@ -713,8 +716,27 @@ function parseChoices(t){
 function tsOf(iso){ var d = new Date(iso); return isNaN(d) ? Date.now() : d.getTime(); }
 
 /* ---------- PCのランプ ---------- */
+var askedPass = false;
+function checkRejected(d){
+  var rej = (d && d.rejected) || []; if (!rej.length || askedPass) return;
+  var mine = []; try { mine = JSON.parse(localStorage.getItem("office_sent") || "[]"); } catch(e){}
+  var hit = mine.some(function(id){ return rej.indexOf(id) >= 0; });
+  if (!hit) return;
+  askedPass = true;
+  var g = document.getElementById("gate");
+  g.querySelector("div").textContent = "合言葉が古いようです。新しい合言葉を入れてください";
+  document.getElementById("pass").value = "";
+  document.getElementById("ok").onclick = function(){
+    var v = document.getElementById("pass").value.trim(); if (!v) return;
+    pass = v; try { localStorage.setItem("office_pass", v); localStorage.setItem("office_sent", "[]"); } catch(e){}
+    askedPass = false; g.close();
+    alert("合言葉を更新しました。さっきの送信はもう一度送ってください。");
+  };
+  if (!g.open) g.showModal();
+}
 function lamp(){
   readDoc(STATUS).then(function(d){
+    checkRejected(d);
     var dot = document.getElementById("dot"), t = document.getElementById("lamp");
     var age = d.ts ? (Date.now()/1000 - d.ts) : 99999;
     if (age < 90) { dot.className = "dot ok"; t.textContent = "PCは動いています（" + Math.round(age) + "秒前に確認）"; }
@@ -765,7 +787,7 @@ document.getElementById("newpill").onclick = function(){ var l = document.getEle
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 40;
+var APP_VER = 41;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
