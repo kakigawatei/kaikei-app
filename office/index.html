@@ -126,6 +126,7 @@
   .afile{margin:6px 0} .afile .an{font-size:12px;color:#556;margin-bottom:2px} .afile audio{width:100%;max-width:360px;height:36px}
   .ttsauto{margin-top:6px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#556;font:inherit;font-size:12px;padding:4px 10px;cursor:pointer}
   .ttsauto.on{background:#eaf5ef;border-color:#bfe0cd;color:var(--accent);font-weight:700}
+  .rtts{margin:0 0 0 auto;white-space:nowrap}
   .ttsstop{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--ch, 90px) + 18px);z-index:40;border:0;border-radius:999px;
     background:#c0392b;color:#fff;font:inherit;font-size:15px;font-weight:700;padding:12px 22px;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer}
   body.pin .ttsstop{bottom:22px}
@@ -257,6 +258,7 @@
   <div class="rhead">
     <button class="back" id="back">‹ もどる</button>
     <div><div class="rname" id="rname"></div></div>
+    <button class="ttsauto rtts" id="ttsauto2" hidden title="ONの間は返事が届くたびに音声で再生">🗣 会話モード OFF</button>
     <button class="refresh" id="reload">更新</button>
   </div>
   <div class="log" id="log"></div>
@@ -504,23 +506,27 @@ function stopSpeak(){
 (function(){ var b = document.getElementById("ttsstop"); if (b) { b.onclick = stopSpeak; b.addEventListener("touchstart", function(e){ e.preventDefault(); stopSpeak(); }, {passive:false}); } })();
 if (TTS_OK) {
   try { window.speechSynthesis.getVoices(); } catch(e){}
-  var tb = document.getElementById("ttsauto");
-  if (tb) {
-    tb.hidden = false;
+  var tbs = [document.getElementById("ttsauto"), document.getElementById("ttsauto2")].filter(Boolean);
+  function paintTts(){
+    tbs.forEach(function(b){ b.className = "ttsauto" + (b.id === "ttsauto2" ? " rtts" : "") + (ttsAuto ? " on" : ""); b.textContent = "🗣 会話モード " + (ttsAuto ? "ON" : "OFF"); });
+  }
+  if (tbs.length) {
+    tbs.forEach(function(b){ b.hidden = false; });
     setTimeout(function(){ if (typeof fitLayout === "function") fitLayout(); }, 0);   /* 見出しが1段高くなるぶんを反映 */
     try { ttsAuto = localStorage.getItem("office_tts") === "1"; } catch(e){}
-    tb.className = "ttsauto" + (ttsAuto ? " on" : ""); tb.textContent = "🔊 自動読み上げ " + (ttsAuto ? "ON" : "OFF");
-    tb.onclick = function(){
+    paintTts();
+    var tb = tbs[0];
+    tbs.forEach(function(b){ b.onclick = function(){
       ttsAuto = !ttsAuto;
       try { localStorage.setItem("office_tts", ttsAuto ? "1" : "0"); } catch(e){}
-      tb.className = "ttsauto" + (ttsAuto ? " on" : ""); tb.textContent = "🔊 自動読み上げ " + (ttsAuto ? "ON" : "OFF");
+      paintTts();
       /* iOSは最初の1回をユーザー操作の中で鳴らす必要がある → ここで短く鳴らして許可を取る */
       if (ttsAuto) {
         try { var a0 = ttsAudioEl(); a0.src = "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQxAADB8AhSmxhIIEVCSiJrDCQBTcu3UrAIwUdkRgQbFAZC1CQEwTJ9mjRvBA4UOLD8nKVOWfh+UlK3z/177OXrfOdKl7pyn3Xf//WreyTRUoAWgBgkOAGbZHBgG1OF6zM82DWbZaUmMBptgQhGjsyYqc9ae9XPAcUOeZWk1ygwWlUw3xNvuzbXm5VHAjfKAS3+0kNr59JKbVVptRiRgtxkm1Y8Uq3wDySQqSvcDG6dCwIz25s73B7GJCTuU8yynp9F2N5ejaLDCk07BgVZqtnuXLaQBjIgzEUbyLZJ4tgY4OAdXJ8Dj+2AmVR1HSMwOwoCLvCqpJvEXFxTLTOfoVK9THk0h5ZfuY0wEWaLo0mCbUJ1vIWJm2Rw2hPFsVHVHhPQXMZ4p6l/YkPtiYc6HWAK4Y1RygwHm9pa1DuwWrWx0p+Yv/6JMzTmFcJrvGbUnv3fu1sxtZ0pk2fzhntamdpIlm2oJURCTXgGmiJlLfLgaK0GvtbPhPEQLC+oCw/yj+GhbtVRtsi6CSqU6Wmv9sd52M5Vw1Mm08J+DJc/kEmvEJKGCOPfnf5nP/ntjK8s6kBwfvMbBWzHUC4BbrTwr3l1E4y2wRmIU1TaiT8zoGpb2usCjD+e3Ml8Xh8B3OKbhkOgDfMv1kFj1p6dfZFdDXJdU4DbfOxcbQ1tZpmw15ZVaftnc+RdbNsHixCeu5e7yrsDwsLl1NsQt8yg1Yhuww1gl52zfDcJb7gqhCcw+wMsMXeS4a6nTpTqK6nvwDEz2LBt/EqIdGuZ21ubKJCTUhWmTp1i1r5dw3bG8IAuVAoYWEh6lSl/ryfE4yIiP+Ka5SQ4lgVBAvZDHrHqpFmzrFxjHsQOmk2EWl2Q7WwSQ7ZI+fhh5qwE9lE2Mej0pXxGsgvNz0wVIyTNMXaBq8GwUNtmybk0CgDOa2pFpx0Q4tRARukEhcYjM9pZHV5AmR1dG1RJ8Bs6nlRuIThhkX4iqdlt1OaUW5aXk+A+H5X4NhAJPQ7v0T4hZoYFHmvZhZhmi+YLDcSYOMoeIe5r8bJjtO0DkgZ4nDOm8WDvC3BzdHwwiM0k0ADzsg9y41AC0J6BXPKdmZbWcoLd3KzB2wF5XTa1ntRNJ/2f5fgVXnDlpHZsVHdaDpQrBcgH0iRAi2fSVrYqgvIt+oTzHAj+zX4SbQ88VjqlH5Q9KvmDpDqiC6wNjJxTf6Sa2A8NA=="; a0.volume = 0.01; var pp = a0.play(); if (pp && pp.catch) pp.catch(function(){}); setTimeout(function(){ a0.volume = 1; }, 800); } catch(e){}
-        speakText("自動読み上げをオンにしました", null);
+        speakText("会話モードをオンにしました。返事が届いたら読み上げます", null);
       } else { stopSpeak(); }
       fitLayout();
-    };
+    }; });
   }
 }
 var roomHist = {};            /* 部屋ごとの履歴（ai_office_room_<id>） */
@@ -1241,7 +1247,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 71;
+var APP_VER = 72;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
