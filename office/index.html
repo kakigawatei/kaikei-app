@@ -96,8 +96,12 @@
   dialog button{margin-top:12px;width:100%;padding:11px;border:0;border-radius:10px;background:var(--accent);
     color:#fff;font:inherit;font-weight:700}
   @media (min-width:900px){
-    main{max-width:none;padding-right:calc(44vw + 16px)}
-    .office img{width:auto;max-height:calc(100vh - 230px)}
+    body{overflow:hidden}
+    main{max-width:none;padding:12px 16px 12px;padding-right:calc(44vw + 16px);
+      height:calc(100vh - 74px);display:flex;align-items:center;justify-content:center}
+    .office{margin:0}
+    .office img{width:auto;height:auto;max-width:100%;max-height:calc(100vh - 100px)}
+    .grid{display:none}          /* オフィス図そのものが一覧なので、パソコンでは出さない */
     #room.on{left:auto;right:0;top:0;width:44vw;height:100vh;
       border-left:1px solid var(--line);box-shadow:-6px 0 18px rgba(0,0,0,.06)}
     .rhead{padding-top:16px}
@@ -111,7 +115,7 @@
 </head>
 <body>
 <header>
-  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v10</span></h1>
+  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v11</span></h1>
   <div class="lamp"><span class="dot" id="dot"></span><span id="lamp">確認中…</span></div>
 </header>
 
