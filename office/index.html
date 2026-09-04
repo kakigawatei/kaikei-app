@@ -184,7 +184,7 @@
 <body>
 <header>
   <div class="hrow">
-    <h1>AIオフィス <span class="ver" id="ver"></span></h1>
+    <h1>AIオフィス <span class="ver" id="ver" title="タップで合言葉を入れ直す"></span></h1>
     <div class="waitbox" id="waitbox" hidden></div>
   </div>
   <div class="lamp"><span class="dot" id="dot"></span><span id="lamp">確認中…</span>
@@ -733,8 +733,19 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 37;
+var APP_VER = 38;
 document.getElementById("ver").textContent = "v" + APP_VER;
+document.getElementById("ver").style.cursor = "pointer";
+document.getElementById("ver").onclick = function(){
+  var g = document.getElementById("gate");
+  document.getElementById("pass").value = "";
+  document.getElementById("ok").onclick = function(){
+    var v = document.getElementById("pass").value.trim(); if (!v) return;
+    pass = v; try { localStorage.setItem("office_pass", v); } catch(e){}
+    g.close();
+  };
+  g.showModal();
+};
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
     var n = parseInt(t, 10);
