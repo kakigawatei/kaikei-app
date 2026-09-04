@@ -384,6 +384,7 @@ function openRoom(s){
   document.getElementById("rname").textContent = s.nm + "（" + s.role + "）";
   document.getElementById("hint").textContent = "返事はここに出ます（Discordの「" + s.nm + "」の部屋にも残ります）";
   forceBottom = true; drawLog();
+  loadRoomHist(s.id);
   document.getElementById("room").classList.add("on");
   if (location.hash !== "#room") history.pushState({room:1}, "", "#room");
   /* スマホでは勝手にキーボードを出さない（読む邪魔になる）。物理キーボードの端末だけ入力欄へ */
@@ -394,6 +395,47 @@ function openRoom(s){
   feedTimer = setInterval(loadFeed, 15000);
 }
 var LOG_STEP = 40;            /* 一度に描く件数 */
+var roomHist = {};            /* 部屋ごとの履歴（ai_office_room_<id>） */
+var histLoading = false;
+function roomRows(id){
+  var base = (feed.rooms && feed.rooms[id]) || [];
+  var h = roomHist[id] || [];
+  if (!h.length) return base;
+  var have = {}; h.forEach(function(m){ have[m.id] = 1; });
+  return h.concat(base.filter(function(m){ return !have[m.id]; }));
+}
+function loadRoomHist(id){
+  return readDoc("ai_office_room_" + id).then(function(d){
+    var msgs = (d && d.msgs) || [];
+    var before = (roomHist[id] || []).length;
+    if (msgs.length && msgs.length !== before) { roomHist[id] = msgs; if (cur && cur.id === id) drawLog(); }
+    return msgs.length;
+  }).catch(function(){ return 0; });
+}
+/* Discordからさらに前を取ってきてもらう */
+function loadOlder(){
+  if (!cur || histLoading) return;
+  var rows = roomRows(cur.id);
+  if (!rows.length) return;
+  histLoading = true;
+  var btn = document.getElementById("logolder"); if (btn) { btn.textContent = "Discordから読み込み中…"; btn.disabled = true; }
+  var rid = "h" + Date.now();
+  var id = cur.id, n0 = rows.length;
+  writeDoc("ai_office_req", {hist:{room:id, before:rows[0].id, rid:rid}}).then(function(){
+    var tries = 0;
+    (function poll(){
+      tries++;
+      loadRoomHist(id).then(function(n){
+        if (n > n0 || tries >= 8) {
+          histLoading = false;
+          if (n > n0) logShown[id] = (logShown[id] || LOG_STEP) + (n - n0);
+          drawLog();
+          if (n <= n0) { var b2 = document.getElementById("logolder"); if (b2) { b2.textContent = "これより前はありません"; b2.disabled = true; } }
+        } else setTimeout(poll, 2500);
+      });
+    })();
+  }).catch(function(){ histLoading = false; });
+}
 /* Discordの添付は media.discordapp.net の縮小版（幅900px以内）を読む。署名付きURLでも width/height は許可されている */
 function thumbUrl(u){
   if (!/https:\/\/(cdn|media)\.discordapp\.(com|net)\/attachments\//.test(u)) return u;
@@ -404,7 +446,7 @@ var logShown = {};            /* 部屋ごとに何件まで描いているか *
 var lastLogKey = "";          /* 直前に描いた内容の指紋（同じなら描き直さない） */
 function drawLog(){
   var l = document.getElementById("log");
-  var allRows = (feed.rooms && feed.rooms[cur.id]) || [];
+  var allRows = roomRows(cur.id);
   var lim = logShown[cur.id] || LOG_STEP;
   var start = Math.max(0, allRows.length - lim);
   var rows = allRows.slice(start);
@@ -443,10 +485,13 @@ function drawLog(){
       esc(m.text) + '<span class="t">' + when(m.ts) + (m.ok ? " ・届いた" : " ・送信中") + '</span></div>');
   });
   if (start > 0) html.unshift('<button class="more" id="logmore">↑ 前の ' + Math.min(LOG_STEP, start) + ' 件を見る（残り ' + start + ' 件）</button>');
+  else if (allRows.length >= 25) html.unshift('<button class="more" id="logolder">↑ もっと前を読む（Discordから）</button>');
   var atBottom = (l.scrollHeight - l.scrollTop - l.clientHeight) < 60 || !l.innerHTML;
   var keepTop = l.scrollTop, keepH = l.scrollHeight;
   l.innerHTML = html.length ? html.join("")
     : '<div class="empty">まだやり取りがありません。<br>下の欄に打つか、マイクで話しかけてください。</div>';
+  var ob = document.getElementById("logolder");
+  if (ob) ob.onclick = loadOlder;
   var mb = document.getElementById("logmore");
   if (mb) mb.onclick = function(){
     logShown[cur.id] = (logShown[cur.id] || LOG_STEP) + LOG_STEP;
@@ -727,7 +772,7 @@ function loadFeed(){
     var sg = sigOf(d);
     if (sg === feedSig) return;                            /* 変化なし＝描き直さない（これがカクつきの元） */
     feedSig = sg; feed = d;
-    if (cur) drawLog(); drawGridQuiet(); drawSeats(); drawWait();
+    if (cur) { drawLog(); loadRoomHist(cur.id); } drawGridQuiet(); drawSeats(); drawWait();
   }).catch(function(){});
 }
 document.addEventListener("visibilitychange", function(){ if (!document.hidden) { loadFeed(); lamp(); } });
@@ -972,7 +1017,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 57;
+var APP_VER = 58;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
