@@ -119,6 +119,7 @@
   .send{border:0;border-radius:12px;background:var(--accent);color:#fff;font:inherit;font-weight:700;
     padding:11px 16px;cursor:pointer}
   .send:disabled{opacity:.45}
+  textarea::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .pic{border:1px solid var(--line);background:var(--card);border-radius:12px;font-size:19px;
     padding:8px 11px;cursor:pointer;line-height:1.2}
   .pic:disabled{opacity:.45}
@@ -211,7 +212,7 @@
   <div class="composer">
     <button class="pic" id="pic" title="写真を送る">📷</button>
     <input type="file" id="file" accept="image/*" hidden>
-    <textarea id="box" rows="1" placeholder="話しかける（マイク・画像の貼り付け・ドラッグもOK）"></textarea>
+    <textarea id="box" rows="1" placeholder="話しかける"></textarea>
     <button class="send" id="send">送る</button>
   </div>
 </section>
@@ -733,7 +734,10 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 38;
+if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
+  document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
+}
+var APP_VER = 39;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
