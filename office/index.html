@@ -817,9 +817,13 @@ function collectTasks(){
       var last = rows[rows.length-1];
       out.push({kind:"wait", id:"w" + last.id, st:st, label:st.nm + "：" + firstLine(last.text).slice(0, 40), ts:tsOf(last.ts)});
     }
+    /* masa の最新発言の時刻: それより前の📌は「答えた」とみなして消す */
+    var lastMasa = 0;
+    rows.forEach(function(m){ if (!m.me) lastMasa = Math.max(lastMasa, tsOf(m.ts)); });
     rows.forEach(function(m){
       if (!m.me || !m.text) return;
       if (Date.now() - tsOf(m.ts) > 7 * 24 * 3600 * 1000) return;
+      if (tsOf(m.ts) < lastMasa) return;
       m.text.split("\n").forEach(function(line, i){
         line = line.trim();
         if (line.indexOf("📌") !== 0) return;
@@ -1088,7 +1092,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 62;
+var APP_VER = 63;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
