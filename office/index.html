@@ -55,6 +55,13 @@
   .send{border:0;border-radius:12px;background:var(--accent);color:#fff;font:inherit;font-weight:700;
     padding:11px 16px;cursor:pointer}
   .send:disabled{opacity:.45}
+  .pic{border:1px solid var(--line);background:var(--card);border-radius:12px;font-size:19px;
+    padding:8px 11px;cursor:pointer;line-height:1.2}
+  .pic:disabled{opacity:.45}
+  .bub img{display:block;max-width:100%;border-radius:9px;margin-bottom:5px}
+  .thumb{padding:0 12px 8px;display:flex;gap:8px;align-items:center;font-size:12px;color:var(--sub)}
+  .thumb img{height:52px;border-radius:8px;border:1px solid var(--line)}
+  .thumb button{border:0;background:none;color:var(--warn);font:inherit;cursor:pointer}
   .hint{font-size:11px;color:var(--sub);padding:0 14px 8px}
   dialog{border:0;border-radius:16px;padding:20px;max-width:320px;width:86%}
   dialog input{width:100%;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:10px;margin-top:10px}
@@ -83,7 +90,10 @@
   </div>
   <div class="log" id="log"></div>
   <div class="hint" id="hint"></div>
+  <div class="thumb" id="thumb" hidden></div>
   <div class="composer">
+    <button class="pic" id="pic" title="写真を送る">📷</button>
+    <input type="file" id="file" accept="image/*" hidden>
     <textarea id="box" rows="1" placeholder="話しかける（マイクでもOK）"></textarea>
     <button class="send" id="send">送る</button>
   </div>
@@ -195,7 +205,7 @@ function drawGrid(){
     b.className = "tile";
     b.innerHTML = '<div class="nm">' + s.nm + '</div>' +
       '<div class="role">' + s.role + '</div>' +
-      '<div class="last">' + (last ? esc(last.text).slice(0,60) : "—") + '</div>' +
+      '<div class="last">' + (last ? ((last.thumb ? "📷 " : "") + (esc(last.text).slice(0,60) || "写真")) : "—") + '</div>' +
       (last ? '<span class="badge ' + (last.ok ? "done" : "sending") + '">' +
         (last.ok ? "届いた " : "送信中 ") + when(last.ts) + '</span>' : "");
     b.onclick = function(){ openRoom(s); };
@@ -223,7 +233,8 @@ function drawLog(){
   var l = document.getElementById("log"), h = hist(cur.id);
   if (!h.length) { l.innerHTML = '<div class="empty">まだ何も送っていません。<br>下の欄に打つか、マイクで話しかけてください。</div>'; return; }
   l.innerHTML = h.map(function(m){
-    return '<div class="bub">' + esc(m.text) +
+    return '<div class="bub">' +
+      (m.thumb ? '<img src="' + m.thumb + '" alt="">' : "") + esc(m.text) +
       '<span class="t">' + when(m.ts) + (m.ok ? " ・届いた" : " ・送信中") + '</span></div>';
   }).join("");
   l.scrollTop = l.scrollHeight;
@@ -234,16 +245,73 @@ document.getElementById("back").onclick = function(){
 var box = document.getElementById("box");
 box.addEventListener("input", function(){ box.style.height = "auto"; box.style.height = Math.min(box.scrollHeight,160) + "px"; });
 
+/* ---------- 写真 ---------- */
+var pending = null;   /* {full:dataURL(送信用), thumb:dataURL(履歴表示用)} */
+
+function shrink(file, maxSide, quality){
+  return new Promise(function(res, rej){
+    var img = new Image(), url = URL.createObjectURL(file);
+    img.onload = function(){
+      var w = img.width, h = img.height, r = Math.min(1, maxSide / Math.max(w, h));
+      var c = document.createElement("canvas");
+      c.width = Math.round(w * r); c.height = Math.round(h * r);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); rej(new Error("画像を読めません")); };
+    img.src = url;
+  });
+}
+
+/* Firestore の1通の上限(約1MB)に収まるまで落とす */
+function fitForSend(file){
+  var plan = [[1400,.72],[1200,.66],[1000,.6],[820,.55]];
+  var i = 0;
+  function step(){
+    return shrink(file, plan[i][0], plan[i][1]).then(function(d){
+      if (d.length < 700000 || i >= plan.length - 1) return d;
+      i++; return step();
+    });
+  }
+  return step();
+}
+
+document.getElementById("pic").onclick = function(){ document.getElementById("file").click(); };
+document.getElementById("file").onchange = function(){
+  var f = this.files && this.files[0]; this.value = "";
+  if (!f) return;
+  var t = document.getElementById("thumb");
+  t.hidden = false; t.textContent = "写真を準備しています…";
+  Promise.all([fitForSend(f), shrink(f, 240, .6)]).then(function(a){
+    pending = {full:a[0], thumb:a[1]};
+    t.innerHTML = "";
+    var im = new Image(); im.src = pending.thumb; t.appendChild(im);
+    var sp = document.createElement("span");
+    sp.textContent = "写真を1枚 添付（" + Math.round(pending.full.length/1400) + "KB）";
+    t.appendChild(sp);
+    var bt = document.createElement("button"); bt.textContent = "やめる";
+    bt.onclick = function(){ pending = null; t.hidden = true; t.innerHTML = ""; };
+    t.appendChild(bt);
+  }).catch(function(e){
+    t.hidden = true; alert("写真を読めませんでした：" + e.message);
+  });
+};
+
 document.getElementById("send").onclick = function(){
-  var text = box.value.trim(); if (!text || !cur) return;
+  var text = box.value.trim(); if ((!text && !pending) || !cur) return;
   var btn = this; btn.disabled = true;
-  var item = {text:text, ts:Date.now(), ok:false};
+  var shot = pending; pending = null;
+  var t = document.getElementById("thumb"); t.hidden = true; t.innerHTML = "";
+  var mid = "m" + Date.now() + Math.floor(Math.random()*1000);
+  var item = {text:text, ts:Date.now(), ok:false, thumb: shot ? shot.thumb : null};
   pushHist(cur.id, item); box.value = ""; box.style.height = "auto"; drawLog();
 
-  readDoc(INBOX).then(function(d){
+  var first = shot ? writeDoc("ai_office_img_" + mid, {b64: shot.full}) : Promise.resolve();
+  first.then(function(){ return readDoc(INBOX); }).then(function(d){
     var msgs = d.msgs || [];
-    msgs.push({ id:"m" + Date.now() + Math.floor(Math.random()*1000),
-                room:cur.id, name:cur.nm, text:text, ts:Date.now(), pass:pass });
+    msgs.push({ id:mid, room:cur.id, name:cur.nm, text:text, ts:Date.now(), pass:pass,
+                img: shot ? ("ai_office_img_" + mid) : null });
     d.msgs = msgs.slice(-100);
     return writeDoc(INBOX, d);
   }).then(function(){
