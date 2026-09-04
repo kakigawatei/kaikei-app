@@ -215,7 +215,7 @@ var feed = {rooms:{}}, feedTimer = null;
 
 var STAFF = [
   {id:"1532176222946197635", nm:"コン",   role:"LINE秘書",       x:16.8, y:18.9},
-  {id:"1532175887494025398", nm:"ジニー", role:"ながおか探検録", x:41.1, y:15.0, face:"ginny"},
+  {id:"1532175887494025398", nm:"ジニー", role:"ながおか探検録", x:41.1, y:15.0},
   {id:"1532176144999252038", nm:"リー",   role:"広告・動画",     x:67.1, y:17.7},
   {id:"1532176037109174503", nm:"ジョー", role:"経理・会計",     x:91.1, y:19.3},
   {id:"1532724627934154842", nm:"ポム",   role:"AI事業",         x:27.5, y:54.5},
@@ -713,7 +713,7 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 31;
+var APP_VER = 32;
 document.getElementById("ver").textContent = "v" + APP_VER;
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
