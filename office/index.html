@@ -15,6 +15,7 @@
   }
   *{box-sizing:border-box}
   [hidden]{display:none!important}
+  body.dropping #room{outline:3px dashed var(--accent);outline-offset:-6px}
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
     -webkit-text-size-adjust:100%}
@@ -184,7 +185,7 @@
   <div class="composer">
     <button class="pic" id="pic" title="写真を送る">📷</button>
     <input type="file" id="file" accept="image/*" hidden>
-    <textarea id="box" rows="1" placeholder="話しかける（マイク・画像の貼り付けもOK）"></textarea>
+    <textarea id="box" rows="1" placeholder="話しかける（マイク・画像の貼り付け・ドラッグもOK）"></textarea>
     <button class="send" id="send">送る</button>
   </div>
 </section>
@@ -507,15 +508,35 @@ function attachFile(f){
 }
 
 /* 貼り付け（Ctrl+V / Cmd+V）で画像を添付 */
+function pickImage(dt){
+  if (!dt) return null;
+  var files = dt.files || [];
+  for (var i = 0; i < files.length; i++) if ((files[i].type || "").indexOf("image/") === 0) return files[i];
+  var items = dt.items || [];
+  for (var j = 0; j < items.length; j++) {
+    if ((items[j].type || "").indexOf("image/") === 0) { var f = items[j].getAsFile(); if (f) return f; }
+  }
+  return null;
+}
 document.addEventListener("paste", function(e){
   if (!document.getElementById("room").classList.contains("on")) return;
-  var items = (e.clipboardData && e.clipboardData.items) || [];
-  for (var i = 0; i < items.length; i++) {
-    if ((items[i].type || "").indexOf("image/") === 0) {
-      var f = items[i].getAsFile();
-      if (f) { e.preventDefault(); attachFile(f); return; }
-    }
-  }
+  var f = pickImage(e.clipboardData);
+  if (f) { e.preventDefault(); attachFile(f); }
+});
+/* ドラッグ＆ドロップ（Finderの画像ファイルを会話に落とす） */
+["dragover", "dragenter"].forEach(function(ev){
+  document.addEventListener(ev, function(e){
+    if (!document.getElementById("room").classList.contains("on")) return;
+    e.preventDefault(); document.body.classList.add("dropping");
+  });
+});
+document.addEventListener("dragleave", function(){ document.body.classList.remove("dropping"); });
+document.addEventListener("drop", function(e){
+  document.body.classList.remove("dropping");
+  if (!document.getElementById("room").classList.contains("on")) return;
+  e.preventDefault();
+  var f = pickImage(e.dataTransfer);
+  if (f) attachFile(f);
 });
 
 /* パソコンのキーボードのときだけ Enter で送信（Shift+Enter は改行） */
@@ -663,7 +684,7 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 22;
+var APP_VER = 23;
 document.getElementById("ver").textContent = "v" + APP_VER;
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
