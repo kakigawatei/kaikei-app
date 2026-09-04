@@ -437,8 +437,22 @@ function drawLog(){
   forceBottom = false;
 }
 var forceBottom = false;
-function showNew(){ var n = document.getElementById("newpill"); if (n) n.hidden = false; }
-function hideNew(){ var n = document.getElementById("newpill"); if (n) n.hidden = true; }
+var hasNew = false;
+function showNew(){ hasNew = true; updatePill(); }
+function hideNew(){ hasNew = false; updatePill(); }
+/* 上にスクロールしている間は「↓ 最新へ」を常に出す。新着があるときは文言を変える */
+function updatePill(){
+  var l = document.getElementById("log"), n = document.getElementById("newpill");
+  if (!l || !n) return;
+  var up = (l.scrollHeight - l.scrollTop - l.clientHeight) > 120;
+  n.hidden = !(up || hasNew);
+  n.textContent = hasNew ? "↓ 新しい返事" : "↓ 最新へ";
+}
+document.getElementById("log").addEventListener("scroll", function(){
+  var l = this;
+  if ((l.scrollHeight - l.scrollTop - l.clientHeight) < 40) hasNew = false;
+  updatePill();
+}, {passive:true});
 /* 選択肢を押したら、Discordのその発言に絵文字を付けにいく＝Discordで押したのと同じ扱いになる */
 function sendChoice(msgId, emoji){
   readDoc(INBOX).then(function(d){
@@ -821,7 +835,7 @@ document.getElementById("newpill").onclick = function(){ var l = document.getEle
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 46;
+var APP_VER = 47;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
