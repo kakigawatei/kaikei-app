@@ -123,7 +123,7 @@
     body{overflow:hidden}
     main{position:fixed;left:0;top:var(--hh);bottom:var(--ch);width:var(--leftw);max-width:none;
       padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
-    .office{margin:0;flex:0 0 auto;min-height:0;width:100%}
+    .office{margin:0 auto;flex:0 0 auto;min-height:0;width:100%}
     .office #bg{width:100%;height:var(--officeh);object-fit:cover;max-width:none;max-height:none}
     /* 10人ぶんが必ず入るように、2列×5行ぴったりに割り付ける */
     .grid{flex:1 1 auto;min-height:0;overflow:hidden;
@@ -669,22 +669,22 @@ function fitLayout(){
   r.style.setProperty("--hh", hh + "px");
   r.style.setProperty("--ch", ch + "px");
   if (window.innerWidth < 900) return;
-  /* 左の列に使える高さ → 一覧(5行)に要る高さを引いた残りが、絵の高さ */
+  /* 左の列＝画面の半分。絵は列の幅いっぱい(4:3)。一覧(5行)が入らないときだけ絵を縮める */
   var avail = window.innerHeight - hh - ch - 20 - 8;   /* padding と gap */
-  var tiles = 5 * 58 + 4 * 6;                          /* 5行ぶん */
-  var oh = Math.max(150, avail - tiles);
-  var ow = oh * (1400 / 1050);                         /* 絵は4:3 */
-  var maxw = window.innerWidth * 0.46, minw = 300;
-  if (ow > maxw) { ow = maxw; oh = ow * (1050 / 1400); }
-  if (ow < minw) { ow = minw; oh = ow * (1050 / 1400); }
-  r.style.setProperty("--leftw", Math.round(ow + 24) + "px");   /* 左右の内側余白ぶん */
+  var tilesMin = 5 * 46 + 4 * 6;                       /* 一覧の最低ライン */
+  var leftw = Math.round(window.innerWidth * 0.5);
+  var ow = leftw - 24, oh = ow * (1050 / 1400);
+  if (avail - oh < tilesMin) { oh = Math.max(160, avail - tilesMin); ow = oh * (1400 / 1050); }
+  r.style.setProperty("--leftw", leftw + "px");
   r.style.setProperty("--officeh", Math.round(oh) + "px");
+  var of = document.querySelector(".office");
+  if (of) of.style.width = Math.round(ow) + "px";
 }
 window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 24;
+var APP_VER = 25;
 document.getElementById("ver").textContent = "v" + APP_VER;
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
