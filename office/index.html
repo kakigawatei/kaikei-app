@@ -93,11 +93,14 @@
   .bub .t{display:block;font-size:10.5px;color:var(--sub);margin-top:4px}
   .bub.them{align-self:flex-start;background:var(--card);border:1px solid var(--line)}
   .bub{-webkit-user-select:text;user-select:text}
-  .copy{display:block;width:100%;margin-top:9px;border:1px solid var(--accent);background:#eaf5ef;
-    color:var(--accent);font:inherit;font-size:13.5px;font-weight:700;border-radius:10px;
-    padding:9px 12px;cursor:pointer;text-align:center}
-  .copy.done{background:var(--accent);color:#fff}
-  .copy.img{margin-top:6px;margin-bottom:4px;font-size:12.5px;padding:7px 12px}
+  .tools{display:flex;justify-content:flex-end;gap:6px;margin-top:6px}
+  .copy{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;
+    border:1px solid var(--line);background:var(--card);color:var(--accent);border-radius:8px;
+    font-size:15px;line-height:1;cursor:pointer}
+  .copy:active{transform:scale(.94)}
+  .copy.done{background:var(--accent);border-color:var(--accent);color:#fff;font-size:13px}
+  .imgwrap{position:relative;display:inline-block;max-width:100%}
+  .imgwrap .copy.img{position:absolute;right:6px;bottom:10px;opacity:.92}
   .pick{display:block;width:100%;margin-top:7px;border:1px solid var(--accent);background:var(--accent);
     color:#fff;font:inherit;font-size:13.5px;font-weight:700;border-radius:10px;padding:10px 12px;
     cursor:pointer;text-align:left}
@@ -163,7 +166,6 @@
     .log{padding:12px 16px}
     .bub{font-size:13.5px;line-height:1.5;max-width:92%}
     .bub img{max-height:180px}
-    .copy{font-size:12.5px;padding:7px 10px}
     .pick{font-size:12.5px;padding:8px 11px}
     .hint{display:none}
     .thumb{max-width:none}
@@ -366,10 +368,10 @@ function drawLog(){
   var rows = (feed.rooms && feed.rooms[cur.id]) || [];
   var html = rows.map(function(m, i){
     var imgs = (m.img || []).map(function(u){
-      return '<img src="' + u + '" alt="">' +
-             '<button class="copy img" data-url="' + u + '">🖼 画像をコピー</button>';
+      return '<span class="imgwrap"><img src="' + u + '" alt="">' +
+             '<button class="copy img" data-url="' + u + '" title="画像をコピー">🖼</button></span>';
     }).join("");
-    var btn = (m.me && m.text) ? '<button class="copy" data-i="' + i + '">📋 この文をコピー</button>' : "";
+    var btn = (m.me && m.text) ? '<div class="tools"><button class="copy" data-i="' + i + '" title="この文をコピー">📋</button></div>' : "";
     var ch = m.me ? parseChoices(m.text) : [];
     var chHtml = ch.map(function(c){
       return '<button class="pick" data-msg="' + m.id + '" data-emoji="' + encodeURIComponent(c.emoji) +
@@ -390,6 +392,9 @@ function drawLog(){
     : '<div class="empty">まだやり取りがありません。<br>下の欄に打つか、マイクで話しかけてください。</div>';
   Array.prototype.forEach.call(l.querySelectorAll(".bub img"), function(im){
     im.onclick = function(){ im.className = im.className ? "" : "big"; };
+  });
+  Array.prototype.forEach.call(l.querySelectorAll(".imgwrap"), function(w){
+    if (w.querySelector("img.big")) w.style.display = "block";
   });
   Array.prototype.forEach.call(l.querySelectorAll(".pick"), function(b){
     b.onclick = function(ev){
@@ -422,8 +427,8 @@ function sendChoice(msgId, emoji){
   }).catch(function(e){ alert("\u9001\u308c\u307e\u305b\u3093\u3067\u3057\u305f\uff1a" + e.message); });
 }
 function copyText(t, btn){
-  function done(){ btn.textContent = "✅ コピーしました"; btn.className = "copy done";
-    setTimeout(function(){ btn.textContent = "📋 この文をコピー"; btn.className = "copy"; }, 1800); }
+  function done(){ btn.textContent = "✅"; btn.className = "copy done";
+    setTimeout(function(){ btn.textContent = "📋"; btn.className = "copy"; }, 1600); }
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(t).then(done, function(){ fallback(t, done); });
   } else { fallback(t, done); }
@@ -446,10 +451,10 @@ function toPng(url){
   });
 }
 function copyImage(url, btn){
-  var ok = function(){ btn.textContent = "✅ コピーしました"; btn.className = "copy img done";
-    setTimeout(function(){ btn.textContent = "🖼 画像をコピー"; btn.className = "copy img"; }, 1800); };
-  var ng = function(){ btn.textContent = "長押しして「写真に追加」";
-    setTimeout(function(){ btn.textContent = "🖼 画像をコピー"; }, 2600); };
+  var ok = function(){ btn.textContent = "✅"; btn.className = "copy img done";
+    setTimeout(function(){ btn.textContent = "🖼"; btn.className = "copy img"; }, 1600); };
+  var ng = function(){ btn.textContent = "✋"; btn.title = "長押しして「写真に追加」";
+    setTimeout(function(){ btn.textContent = "🖼"; }, 2600); };
   if (!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write)) { ng(); return; }
   try {
     navigator.clipboard.write([ new ClipboardItem({ "image/png": toPng(url) }) ]).then(ok, ng);
@@ -728,7 +733,7 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 36;
+var APP_VER = 37;
 document.getElementById("ver").textContent = "v" + APP_VER;
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
