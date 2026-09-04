@@ -29,6 +29,18 @@
   .waitbox{font-size:12.5px;font-weight:700;color:#8a3b12;background:#fdecdc;border:1px solid #f4c9a8;
     border-radius:999px;padding:4px 11px;cursor:pointer}
   .waitbox.zero{color:var(--accent);background:#e6f3ec;border-color:#bfe0cd;cursor:default}
+  /* 残タスクの帯 */
+  .tasks{display:flex;align-items:center;gap:6px;margin-top:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .tasks::-webkit-scrollbar{height:4px}
+  .tasks .tl{flex:0 0 auto;font-size:12px;font-weight:700;color:#556}
+  .chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;max-width:320px;font-size:12.5px;font-weight:600;
+    border-radius:999px;padding:5px 6px 5px 10px;border:1px solid;cursor:pointer;white-space:nowrap}
+  .chip span{overflow:hidden;text-overflow:ellipsis;max-width:250px}
+  .chip.wait{color:#8a3b12;background:#fdecdc;border-color:#f4c9a8}
+  .chip.todo{color:#6b4e00;background:#fff3cd;border-color:#f1d98a}
+  .chip .ok{border:0;border-radius:999px;background:rgba(0,0,0,.08);color:inherit;font:inherit;font-size:11px;padding:2px 7px;cursor:pointer}
+  .chip .ok:active{background:rgba(0,0,0,.2)}
+  .tasks.zero .tl{color:var(--accent)}
   .newver{margin-top:8px;font-size:12.5px;background:#fff3cd;color:#6b4e00;border:1px solid #f1d98a;
     border-radius:10px;padding:7px 11px;display:flex;align-items:center;gap:10px}
   .newver button{border:0;border-radius:8px;background:#6b4e00;color:#fff;font:inherit;font-weight:700;
@@ -216,6 +228,7 @@
     <h1>AIオフィス <span class="ver" id="ver" title="タップで合言葉を入れ直す"></span></h1>
     <div class="waitbox" id="waitbox" hidden></div>
   </div>
+  <div class="tasks" id="tasks" hidden></div>
   <div class="lamp"><span class="dot" id="dot"></span><span id="lamp">確認中…</span>
     <span class="legend"><i class="lp free"></i>手あき <i class="lp busy"></i>作業中 <i class="lp wait"></i>返事待ち</span></div>
   <div class="newver" id="newver" hidden>新しい版があります <button id="doreload">更新する</button></div>
@@ -778,19 +791,74 @@ function loadFeed(){
 document.addEventListener("visibilitychange", function(){ if (!document.hidden) { loadFeed(); lamp(); } });
 /* いまの様子を、直近のやり取りから決める */
 var MOODJA = {busy:"作業中", free:"手あき", wait:"返事待ち"};
+var TASKS_DOC = "ai_office_tasks";
+var taskDone = {};                     /* 済にしたタスクid（Firestoreで共有） */
+var taskDoneLoaded = false;
+function loadTaskDone(){
+  return readDoc(TASKS_DOC).then(function(d){
+    taskDone = {}; ((d && d.done) || []).forEach(function(id){ taskDone[id] = 1; });
+    taskDoneLoaded = true; drawWait();
+  }).catch(function(){});
+}
+function markDone(id){
+  taskDone[id] = 1; drawWait();
+  var ids = Object.keys(taskDone).slice(-300);
+  writeDoc(TASKS_DOC, {done: ids, ts: Date.now()}).catch(function(){});
+}
+function firstLine(t){ return (t || "").replace(/\*\*/g, "").split("\n").map(function(x){ return x.trim(); }).filter(Boolean)[0] || ""; }
+/* 残タスクを集める: 🔴返事待ち（部屋ごと）＋📌私の返事の「📌」行（7日以内・未済） */
+function collectTasks(){
+  var out = [];
+  STAFF.forEach(function(st){
+    if (!st.id) return;
+    var rows = roomRows(st.id);
+    if (!rows.length) return;
+    if (mood(st) === "wait") {
+      var last = rows[rows.length-1];
+      out.push({kind:"wait", id:"w" + last.id, st:st, label:st.nm + "：" + firstLine(last.text).slice(0, 40), ts:tsOf(last.ts)});
+    }
+    rows.forEach(function(m){
+      if (!m.me || !m.text) return;
+      if (Date.now() - tsOf(m.ts) > 7 * 24 * 3600 * 1000) return;
+      m.text.split("\n").forEach(function(line, i){
+        line = line.trim();
+        if (line.charAt(0) !== "📌") return;
+        var id = "t" + m.id + "_" + i;
+        if (taskDone[id]) return;
+        var lb = line.slice(1).replace(/^\s*(masa|masaさん|masaへ)\s*[:：]\s*/, "").trim();
+        out.push({kind:"todo", id:id, st:st, label:lb.slice(0, 48), ts:tsOf(m.ts)});
+      });
+    });
+  });
+  out.sort(function(a, b){ return (a.kind === b.kind) ? (b.ts - a.ts) : (a.kind === "wait" ? -1 : 1); });
+  return out;
+}
 function drawWait(){
-  var w = document.getElementById("waitbox");
-  var names = STAFF.filter(function(x){ return x.id && mood(x) === "wait"; }).map(function(x){ return x.nm; });
+  var w = document.getElementById("waitbox"), bar = document.getElementById("tasks");
+  var tasks = collectTasks();
+  var waits = tasks.filter(function(t){ return t.kind === "wait"; });
   w.hidden = false;
-  if (names.length) {
-    w.className = "waitbox";
-    w.textContent = "返事待ち " + names.length + "件： " + names.join("・");
-    w.onclick = function(){ var st = STAFF.filter(function(x){ return x.nm === names[0]; })[0]; if (st) openRoom(st); };
-  } else {
-    w.className = "waitbox zero";
-    w.textContent = "返事待ち なし";
-    w.onclick = null;
-  }
+  if (tasks.length) { w.className = "waitbox"; w.textContent = "残タスク " + tasks.length + "件"; }
+  else { w.className = "waitbox zero"; w.textContent = "残タスク なし"; }
+  w.onclick = null;
+  bar.innerHTML = "";
+  bar.hidden = !tasks.length;
+  bar.className = "tasks" + (tasks.length ? "" : " zero");
+  tasks.forEach(function(t){
+    var c = document.createElement("div");
+    c.className = "chip " + t.kind;
+    c.innerHTML = (t.kind === "wait" ? "🔴 " : "📌 ") + "<span></span>";
+    c.querySelector("span").textContent = t.label;
+    c.onclick = function(){ openRoom(t.st); };
+    if (t.kind === "todo") {
+      var ok = document.createElement("button"); ok.className = "ok"; ok.textContent = "済";
+      ok.onclick = function(ev){ ev.stopPropagation(); markDone(t.id); };
+      ok.addEventListener("touchstart", function(ev){ ev.stopPropagation(); }, {passive:true});
+      c.appendChild(ok);
+    }
+    bar.appendChild(c);
+  });
+  if (typeof fitLayout === "function") fitLayout();     /* 帯の分だけ見出しの高さが変わる */
 }
 function mood(st){
   var rows = (st.id && feed.rooms && feed.rooms[st.id]) || [];
@@ -1020,7 +1088,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 60;
+var APP_VER = 61;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
@@ -1040,7 +1108,7 @@ function checkVer(){
   }).catch(function(){});
 }
 document.getElementById("doreload").onclick = function(){ location.reload(); };
-drawGrid(); drawSeats(); lamp(); loadFeed(); drawWait();
+drawGrid(); drawSeats(); lamp(); loadFeed(); drawWait(); loadTaskDone();
 setInterval(lamp, 20000);
 setInterval(function(){ if (!cur) loadFeed(); }, 25000);   /* 一覧画面も自動で新しくする */
 setInterval(checkVer, 45000); setTimeout(checkVer, 3000);
