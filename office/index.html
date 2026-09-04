@@ -206,7 +206,7 @@
 
 <main>
   <div class="office" id="office">
-    <img src="office_bg.jpg" alt="AIオフィス" id="bg">
+    <img src="office_bg.jpg?v=44" alt="AIオフィス" id="bg">
   </div>
   <div class="grid" id="grid"></div>
 </main>
@@ -249,7 +249,7 @@ var STAFF = [
   {id:"1532724627934154842", nm:"ポム",   role:"AI事業",         x:27.5, y:54.5},
   {id:"1532724546732425306", nm:"セレン", role:"リリース担当",   x:48.2, y:53.4},
   {id:"1532171159645458535", nm:"かねつぐ", role:"お客様窓口", x:67.9, y:53.4},
-  {id:"1517471809392476282", nm:"バウ本部", role:"マーケ・全社", x:87.9, y:61.0},
+  {id:"1517471809392476282", nm:"masa", role:"代表・バウ本部", x:87.9, y:59.0},
   {id:"1542160237723648021", nm:"ずんだ", role:"柿川亭アプリ",   x:32.9, y:84.9},
   {id:"1542160436487528509", nm:"さくら", role:"山形出店",       x:53.2, y:85.3}
 ];
@@ -810,7 +810,7 @@ document.getElementById("newpill").onclick = function(){ var l = document.getEle
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 43;
+var APP_VER = 44;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
