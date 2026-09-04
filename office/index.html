@@ -802,7 +802,7 @@ function mood(st){
   if (Date.now() - tsOf(last.ts) > 3 * 24 * 3600 * 1000) return "free";
   if (/[？?]$/.test(t) || parseChoices(t).length || /どちらにしますか|選んでください|決めてください/.test(t)) return "wait";
   /* 私が「これからやる」と言って60分以内＝作業中（例: 20分ください／直します／作り直します／進めます／確認します） */
-  var WORKING = /\d+\s*分(ほど|くらい|程)?(ください|待って|で出します|で公開します)|(直し|作り直し|作り|進め|確認し|探し|調べ|やり|着手し|仕上げ|組み|送り|出し|公開し|用意し)ます|作業します|取りかかります|進めています|作業中です|少々お待ち|お待ちください/;
+  var WORKING = /\d+\s*分(ほど|くらい|程)?(ください|待って|で出します|で公開します)|(直し|作り直し|作り|進め|確認し|探し|調べ|やり|着手し|仕上げ|組み|送り|出し|公開し|用意し|外し|取り外し|変え|変更し|追加し|付け|入れ|書き換え|差し替え|試し|見てみ|考え|まとめ)ます|作業します|取りかかります|進めています|作業中です|少々お待ち|お待ちください/;
   if (WORKING.test(t) && Date.now() - tsOf(last.ts) < 60 * 60 * 1000) return "busy";
   return "free";
 }
@@ -1020,7 +1020,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 59;
+var APP_VER = 60;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
