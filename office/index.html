@@ -20,6 +20,18 @@
   header{position:sticky;top:0;z-index:5;background:var(--bg);
     padding:calc(env(safe-area-inset-top) + 14px) 16px 10px;border-bottom:1px solid var(--line)}
   h1{margin:0;font-size:19px;letter-spacing:.02em}
+  .ver{font-size:11px;color:#8a94a0;font-weight:400}
+  .hrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .waitbox{font-size:12.5px;font-weight:700;color:#8a3b12;background:#fdecdc;border:1px solid #f4c9a8;
+    border-radius:999px;padding:4px 11px;cursor:pointer}
+  .waitbox.zero{color:var(--accent);background:#e6f3ec;border-color:#bfe0cd;cursor:default}
+  .newver{margin-top:8px;font-size:12.5px;background:#fff3cd;color:#6b4e00;border:1px solid #f1d98a;
+    border-radius:10px;padding:7px 11px;display:flex;align-items:center;gap:10px}
+  .newver button{border:0;border-radius:8px;background:#6b4e00;color:#fff;font:inherit;font-weight:700;
+    padding:5px 11px;cursor:pointer}
+  .chip{display:inline-block;font-size:10px;font-weight:700;border-radius:999px;padding:1px 7px;margin-top:6px;margin-right:4px}
+  .chip.busy{background:#e8eefc;color:#2c4a9a} .chip.free{background:#e6f3ec;color:var(--accent)}
+  .chip.wait{background:#fdecdc;color:#8a3b12}
   .lamp{display:flex;align-items:center;gap:7px;margin-top:6px;font-size:12px;color:var(--sub)}
   .dot{width:9px;height:9px;border-radius:50%;background:#bbb}
   .dot.ok{background:#2ecc71} .dot.ng{background:var(--warn)}
@@ -142,8 +154,12 @@
 </head>
 <body>
 <header>
-  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v18</span></h1>
+  <div class="hrow">
+    <h1>AIオフィス <span class="ver" id="ver"></span></h1>
+    <div class="waitbox" id="waitbox" hidden></div>
+  </div>
   <div class="lamp"><span class="dot" id="dot"></span><span id="lamp">確認中…</span></div>
+  <div class="newver" id="newver" hidden>新しい版があります <button id="doreload">更新する</button></div>
 </header>
 
 <main>
@@ -282,12 +298,14 @@ function drawGrid(){
               ts:tsOf(r.ts), ok:true, thumb:(r.img && r.img.length ? r.img[0] : null)};
     }
     var b = document.createElement("button");
-    b.className = "tile";
-    b.innerHTML = '<div class="nm">' + s.nm + '</div>' +
+    var md0 = mood(s);
+    b.className = "tile " + md0;
+    var plain = last ? String(last.text || "").replace(/\*\*/g, "").replace(/\s+/g, " ").trim() : "";
+    b.innerHTML = '<div class="nm">' + s.nm + ' <span class="chip ' + md0 + '">' + MOODJA[md0] + '</span></div>' +
       '<div class="role">' + s.role + '</div>' +
-      '<div class="last">' + (last ? ((last.thumb ? "📷 " : "") + (esc(last.text).slice(0,60) || "写真")) : "—") + '</div>' +
+      '<div class="last">' + (last ? ((last.thumb ? "📷 " : "") + (esc(plain).slice(0,60) || "写真")) : "—") + '</div>' +
       (last ? '<span class="badge ' + (last.ok ? "done" : "sending") + '">' +
-        (last.ok ? "届いた " : "送信中 ") + when(last.ts) + '</span>' : "");
+        (last.ok ? "" : "送信中 ") + when(last.ts) + '</span>' : "");
     b.onclick = function(){ openRoom(s); };
     g.appendChild(b);
   });
@@ -304,7 +322,7 @@ var cur = null;
 function openRoom(s){
   cur = s;
   document.getElementById("rname").textContent = s.nm + "（" + s.role + "）";
-  document.getElementById("hint").textContent = "返事はDiscordの「" + s.nm + "」の部屋に届きます。";
+  document.getElementById("hint").textContent = "返事はここに出ます（Discordの「" + s.nm + "」の部屋にも残ります）";
   drawLog();
   document.getElementById("room").classList.add("on");
   if (location.hash !== "#room") history.pushState({room:1}, "", "#room");
@@ -534,10 +552,25 @@ document.getElementById("send").onclick = function(){
 /* ---------- 返事の取り込み（PCの受け取り係がDiscordを読んで置いてくれる） ---------- */
 function loadFeed(){
   return readDoc(FEED).then(function(d){
-    if (d && d.rooms) { feed = d; if (cur) drawLog(); drawGridQuiet(); drawSeats(); }
+    if (d && d.rooms) { feed = d; if (cur) drawLog(); drawGridQuiet(); drawSeats(); drawWait(); }
   }).catch(function(){});
 }
 /* いまの様子を、直近のやり取りから決める */
+var MOODJA = {busy:"作業中", free:"手あき", wait:"返事待ち"};
+function drawWait(){
+  var w = document.getElementById("waitbox");
+  var names = STAFF.filter(function(x){ return x.id && mood(x) === "wait"; }).map(function(x){ return x.nm; });
+  w.hidden = false;
+  if (names.length) {
+    w.className = "waitbox";
+    w.textContent = "返事待ち " + names.length + "件： " + names.join("・");
+    w.onclick = function(){ var st = STAFF.filter(function(x){ return x.nm === names[0]; })[0]; if (st) openRoom(st); };
+  } else {
+    w.className = "waitbox zero";
+    w.textContent = "返事待ち なし";
+    w.onclick = null;
+  }
+}
 function mood(st){
   var rows = (st.id && feed.rooms && feed.rooms[st.id]) || [];
   if (!rows.length) return "free";
@@ -622,7 +655,19 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-drawGrid(); drawSeats(); lamp(); loadFeed(); setInterval(lamp, 20000);
+var APP_VER = 19;
+document.getElementById("ver").textContent = "v" + APP_VER;
+function checkVer(){
+  fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
+    var n = parseInt(t, 10);
+    if (n && n > APP_VER) document.getElementById("newver").hidden = false;
+  }).catch(function(){});
+}
+document.getElementById("doreload").onclick = function(){ location.reload(); };
+drawGrid(); drawSeats(); lamp(); loadFeed(); drawWait();
+setInterval(lamp, 20000);
+setInterval(function(){ if (!cur) loadFeed(); }, 20000);   /* 一覧画面も自動で新しくする */
+setInterval(checkVer, 45000); setTimeout(checkVer, 3000);
 </script>
 </body>
 </html>
