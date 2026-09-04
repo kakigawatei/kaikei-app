@@ -37,11 +37,11 @@
   .badge.done{background:#e6f3ec;color:var(--accent)}
 
   /* 会話画面 */
-  #room{display:none;position:fixed;inset:0;background:var(--bg);flex-direction:column}
+  #room{display:none;position:fixed;inset:0;z-index:20;background:var(--bg);flex-direction:column}
   #room.on{display:flex}
   .rhead{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 12px) 14px 10px;
     border-bottom:1px solid var(--line);background:var(--bg)}
-  .back{border:0;background:none;font:inherit;color:var(--accent);font-size:15px;padding:4px 2px;cursor:pointer}
+  .back{border:0;background:none;font:inherit;color:var(--accent);font-size:16px;font-weight:700;padding:8px 6px;margin:-4px 0;cursor:pointer}
   .rname{font-weight:700}
   .log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:9px}
   .bub{max-width:84%;padding:9px 12px;border-radius:14px;font-size:14.5px;line-height:1.55;white-space:pre-wrap;
@@ -227,6 +227,7 @@ function openRoom(s){
   document.getElementById("hint").textContent = "返事はDiscordの「" + s.nm + "」の部屋に届きます。";
   drawLog();
   document.getElementById("room").classList.add("on");
+  if (location.hash !== "#room") history.pushState({room:1}, "", "#room");
   document.getElementById("box").focus();
 }
 function drawLog(){
@@ -239,9 +240,16 @@ function drawLog(){
   }).join("");
   l.scrollTop = l.scrollHeight;
 }
+function closeRoom(){
+  document.getElementById("room").classList.remove("on");
+  drawGrid();
+}
 document.getElementById("back").onclick = function(){
-  document.getElementById("room").classList.remove("on"); drawGrid();
+  if (location.hash === "#room") { history.back(); } else { closeRoom(); }
 };
+window.addEventListener("popstate", function(){
+  if (location.hash !== "#room") closeRoom();
+});
 var box = document.getElementById("box");
 box.addEventListener("input", function(){ box.style.height = "auto"; box.style.height = Math.min(box.scrollHeight,160) + "px"; });
 
