@@ -334,7 +334,8 @@ function openRoom(s){
   drawLog();
   document.getElementById("room").classList.add("on");
   if (location.hash !== "#room") history.pushState({room:1}, "", "#room");
-  document.getElementById("box").focus();
+  /* スマホでは勝手にキーボードを出さない（読む邪魔になる）。物理キーボードの端末だけ入力欄へ */
+  if (window.matchMedia && window.matchMedia("(pointer: fine)").matches) document.getElementById("box").focus();
   fitLayout();
   loadFeed();
   if (feedTimer) clearInterval(feedTimer);
@@ -699,7 +700,7 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 27;
+var APP_VER = 28;
 document.getElementById("ver").textContent = "v" + APP_VER;
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
