@@ -123,6 +123,7 @@
   .pick.done{background:#8aa79a;border-color:#8aa79a}
   @media (prefers-color-scheme:dark){ .copy{background:#22392f} }
   .bub b{font-weight:700}
+  .unread{text-align:center;color:#c0392b;font-size:12px;font-weight:700;margin:6px 0;letter-spacing:.05em}
   .afile{margin:6px 0} .afile .an{font-size:12px;color:#556;margin-bottom:2px} .afile audio{width:100%;max-width:360px;height:36px}
   .ttsauto{margin-top:6px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#556;font:inherit;font-size:12px;padding:4px 10px;cursor:pointer}
   .ttsauto.on{background:#eaf5ef;border-color:#bfe0cd;color:var(--accent);font-weight:700}
@@ -410,7 +411,7 @@ function openRoom(s){
   cur = s;
   document.getElementById("rname").textContent = s.nm + "（" + s.role + "）";
   document.getElementById("hint").textContent = "返事はここに出ます（Discordの「" + s.nm + "」の部屋にも残ります）";
-  forceBottom = true; drawLog();
+  openScroll = true; forceBottom = true; drawLog();
   loadRoomHist(s.id);
   document.getElementById("room").classList.add("on");
   if (location.hash !== "#room") history.pushState({room:1}, "", "#room");
@@ -422,6 +423,10 @@ function openRoom(s){
   feedTimer = setInterval(loadFeed, 15000);
 }
 var LOG_STEP = 40;            /* 一度に描く件数 */
+var openScroll = false;       /* 部屋を開いた直後だけ true（未読位置へ飛ぶ） */
+function readMark(room){ try { return localStorage.getItem("office_read_" + room) || ""; } catch(e){ return ""; } }
+function saveMark(room, id){ try { if (id && idGt(id, readMark(room))) localStorage.setItem("office_read_" + room, id); } catch(e){} }
+function idGt(a, b){ a = String(a || ""); b = String(b || ""); if (!b) return true; if (!a) return false; return a.length !== b.length ? a.length > b.length : a > b; }
 /* ---------- 読み上げ（Web Speech Synthesis） ---------- */
 var TTS_OK = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
 var ttsAuto = false, ttsLastId = null, ttsBtnOn = null;
@@ -620,7 +625,7 @@ function drawLog(){
              '">' + (c.letter.length === 1 ? c.letter + " … " : c.letter + " ") + esc(c.label) + '</button>';
     }).join("");
     if (m._done) chHtml = '<div class="donebadge">' + m._done + '</div>';
-    return '<div class="bub ' + (m.me ? "them" : "") + '">' + say + imgs + md(m.text) + chHtml + btn +
+    return '<div class="bub ' + (m.me ? "them" : "") + '" data-id="' + (m.id || "") + '">' + say + imgs + md(m.text) + chHtml + btn +
       '<span class="t">' + when(tsOf(m.ts)) + (m.me ? " ・" + cur.nm : "") + '</span></div>';
   });
   /* まだDiscordに写っていない直近の送信ぶんを足す */
@@ -687,7 +692,32 @@ function drawLog(){
       copyText(raw, b);
     };
   });
-  if (atBottom || forceBottom) { l.scrollTop = l.scrollHeight; hideNew(); }
+  if (openScroll && rows.length) {
+    /* 部屋を開いた直後: 未読の先頭があればそこへ、無ければ末尾へ */
+    var lastRead = readMark(cur.id);
+    var firstUnread = null;
+    if (lastRead) {
+      for (var k = 0; k < rows.length; k++) { if (idGt(rows[k].id, lastRead)) { firstUnread = rows[k]; break; } }
+    }
+    openScroll = false;
+    if (firstUnread && firstUnread !== rows[0]) {
+      var el = l.querySelector('.bub[data-id="' + firstUnread.id + '"]');
+      if (el) {
+        var dv = document.createElement("div"); dv.className = "unread"; dv.textContent = "── ここから未読 ──";
+        el.parentNode.insertBefore(dv, el);
+        l.scrollTop = Math.max(0, dv.offsetTop - 8);
+        [150, 500, 1000].forEach(function(t){ setTimeout(function(){ l.scrollTop = Math.max(0, dv.offsetTop - 8); }, t); });
+        showNew(); forceBottom = false;
+        return;
+      }
+    }
+    forceBottom = true;
+  }
+  if (atBottom || forceBottom) {
+    l.scrollTop = l.scrollHeight; hideNew();
+    [150, 500, 1000, 1800].forEach(function(t){ setTimeout(function(){ if ((l.scrollHeight - l.scrollTop - l.clientHeight) < 200) l.scrollTop = l.scrollHeight; }, t); });   /* 画像の読み込みで伸びても末尾を保つ */
+    if (rows.length) saveMark(cur.id, rows[rows.length-1].id);
+  }
   else { l.scrollTop = keepTop; showNew(); }
   forceBottom = false;
 }
@@ -705,7 +735,7 @@ function updatePill(){
 }
 document.getElementById("log").addEventListener("scroll", function(){
   var l = this;
-  if ((l.scrollHeight - l.scrollTop - l.clientHeight) < 40) hasNew = false;
+  if ((l.scrollHeight - l.scrollTop - l.clientHeight) < 40) { hasNew = false; if (cur) { var rr = roomRows(cur.id); if (rr.length) saveMark(cur.id, rr[rr.length-1].id); } }
   updatePill();
 }, {passive:true});
 /* 選択肢を押したら、Discordのその発言に絵文字を付けにいく＝Discordで押したのと同じ扱いになる */
@@ -763,6 +793,7 @@ function fallback(t, done){
   document.body.removeChild(ta);
 }
 function closeRoom(){
+  try { if (cur) { var l0 = document.getElementById("log"); if ((l0.scrollHeight - l0.scrollTop - l0.clientHeight) < 120) { var r0 = roomRows(cur.id); if (r0.length) saveMark(cur.id, r0[r0.length-1].id); } } } catch(e){}
   document.getElementById("room").classList.remove("on");
   if (feedTimer) { clearInterval(feedTimer); feedTimer = null; }
   cur = null; drawGrid();
@@ -1254,7 +1285,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 73;
+var APP_VER = 74;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
