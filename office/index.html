@@ -155,6 +155,7 @@
     padding:7px 14px;box-shadow:0 3px 10px rgba(0,0,0,.2);cursor:pointer}
   @media (max-width:899px){ .newpill{bottom:calc(env(safe-area-inset-bottom) + 96px)} }
   body.pin .newpill{bottom:16px;padding:10px 18px;font-size:14px}
+  @media (min-width:900px){ .newpill{bottom:14px} }   /* PC/iPad横: #room自体が入力欄の上で終わるので、その内側の下端に */
   .composer{border-top:1px solid var(--line);padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);
     background:var(--card);display:flex;gap:9px;align-items:flex-end}
   .cwrap{background:var(--card)}
@@ -1285,7 +1286,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 74;
+var APP_VER = 75;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
