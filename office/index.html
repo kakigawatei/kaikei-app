@@ -123,6 +123,7 @@
   .pick.done{background:#8aa79a;border-color:#8aa79a}
   @media (prefers-color-scheme:dark){ .copy{background:#22392f} }
   .bub b{font-weight:700}
+  .afile{margin:6px 0} .afile .an{font-size:12px;color:#556;margin-bottom:2px} .afile audio{width:100%;max-width:360px;height:36px}
   .ttsauto{margin-top:6px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#556;font:inherit;font-size:12px;padding:4px 10px;cursor:pointer}
   .ttsauto.on{background:#eaf5ef;border-color:#bfe0cd;color:var(--accent);font-weight:700}
   .ttsstop{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--ch, 90px) + 18px);z-index:40;border:0;border-radius:999px;
@@ -590,6 +591,9 @@ function drawLog(){
     }).join("");
     if ((m.img || []).length > 1) imgs = '<div class="pics">' + imgs + '</div>';
     imgs += (m.files || []).map(function(f){
+      if (/\.(mp3|m4a|wav|ogg|aac)(\?|$)/i.test(f.name || "") || /\.(mp3|m4a|wav|ogg|aac)(\?|$)/i.test(f.url || "")) {
+        return '<div class="afile"><div class="an">🎧 ' + esc(f.name || "音声") + '</div><audio controls preload="none" src="' + f.url + '"></audio></div>';
+      }
       return '<a class="file" href="' + f.url + '" target="_blank" rel="noopener">' + esc(f.name || "ファイル") + (f.size ? ' <small>(' + Math.round(f.size / 1024) + 'KB)</small>' : '') + '</a>';
     }).join("");
     var btn = (m.me && m.text) ? '<div class="tools"><button class="copy" data-i="' + i + '" title="この文をコピー">📋</button></div>' : "";
@@ -1237,7 +1241,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 70;
+var APP_VER = 71;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
