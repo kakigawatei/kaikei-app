@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" id="vp" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
@@ -880,11 +880,27 @@ function fitLayout(){
 window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 /* iPadでキーボード（Typeless等）を閉じたあと、縮んだ表示領域が戻らないことがある → 何度か張り直す */
+/* 横幅や拡大率が狂っていたら（iPadのキーボード後に起きる）、viewport meta を入れ直して元のサイズに戻す */
+function fixZoom(){
+  var vv = window.visualViewport;
+  var scaleOff = vv && vv.scale && Math.abs(vv.scale - 1) > 0.02;
+  var sw = (screen && screen.width) ? screen.width : 0;
+  var widthOff = sw && window.innerWidth < sw * 0.85 && (vv && vv.width < sw * 0.85);
+  if (!scaleOff && !widthOff) return false;
+  var m = document.getElementById("vp");
+  if (!m) return false;
+  var base = "width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover";
+  m.setAttribute("content", "width=device-width,initial-scale=1.0001,maximum-scale=1,user-scalable=no,viewport-fit=cover");
+  setTimeout(function(){ m.setAttribute("content", base); window.scrollTo(0, 0); fitLayout(); }, 30);
+  return true;
+}
 function refit(){
   window.scrollTo(0, 0);
+  fixZoom();
   fitLayout();
-  [120, 400, 900].forEach(function(t){ setTimeout(function(){ window.scrollTo(0, 0); fitLayout(); }, t); });
+  [120, 400, 900, 1600].forEach(function(t){ setTimeout(function(){ window.scrollTo(0, 0); fixZoom(); fitLayout(); }, t); });
 }
+setInterval(function(){ if (fixZoom()) fitLayout(); }, 2000);
 if (window.visualViewport) {
   var vvTimer = null;
   window.visualViewport.addEventListener("resize", function(){ clearTimeout(vvTimer); vvTimer = setTimeout(refit, 60); });
@@ -898,7 +914,7 @@ document.getElementById("newpill").onclick = function(){ var l = document.getEle
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 50;
+var APP_VER = 51;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
