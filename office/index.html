@@ -482,7 +482,7 @@ function drawLog(){
     var ch = m.me ? parseChoices(m.text) : [];
     var chHtml = ch.map(function(c){
       return '<button class="pick" data-msg="' + m.id + '" data-emoji="' + encodeURIComponent(c.emoji) +
-             '">' + c.letter + " … " + esc(c.label) + '</button>';
+             '">' + (c.letter.length === 1 ? c.letter + " … " : c.letter + " ") + esc(c.label) + '</button>';
     }).join("");
     return '<div class="bub ' + (m.me ? "them" : "") + '">' + imgs + md(m.text) + chHtml + btn +
       '<span class="t">' + when(tsOf(m.ts)) + (m.me ? " ・" + cur.nm : "") + '</span></div>';
@@ -918,6 +918,10 @@ function md(t){
 var CHOICE_EMOJI = ["🇦","🇧","🇨","🇩","🇪"];
 function parseChoices(t){
   var out = [];
+  /* 「この投稿に ✅ を付けたら送信」型（Chatworkの返信案など）→ 送信/見送りのボタン */
+  if (/✅\s*を(付け|押)|✅で送信|✅を付けたら/.test(t || "")) {
+    return [{emoji:"✅", letter:"✅", label:"送信する（Chatworkへ）"}, {emoji:"❌", letter:"❌", label:"見送る"}];
+  }
   (t || "").split("\n").forEach(function(line){
     var s2 = line.trim();
     for (var i = 0; i < CHOICE_EMOJI.length; i++) {
@@ -1092,7 +1096,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 63;
+var APP_VER = 64;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
