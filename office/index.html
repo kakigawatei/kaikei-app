@@ -1050,7 +1050,12 @@ function drawSeats(){
     o.appendChild(b);
   });
 }
-function drawGridQuiet(){ if (!document.getElementById("room").classList.contains("on")) drawGrid(); }
+function drawGridQuiet(){
+  if (document.getElementById("room").classList.contains("on")) return;
+  var y = window.scrollY || window.pageYOffset || 0;     /* 一覧を描き直してもスクロール位置を保つ */
+  drawGrid();
+  if (y) window.scrollTo(0, y);
+}
 function md(t){
   var h = esc(t).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
   /* [文字](URL) → リンク */
@@ -1177,16 +1182,18 @@ function fixZoom(){
   return true;
 }
 function refit(){
-  window.scrollTo(0, 0);
+  /* 先頭へ戻すのは iPad（横幅900以上の固定レイアウト）だけ。iPhone はページを普通にスクロールさせるので触らない */
+  var top = window.innerWidth >= 900;
+  if (top) window.scrollTo(0, 0);
   fixZoom();
   fitLayout();
-  [120, 400, 900, 1600].forEach(function(t){ setTimeout(function(){ window.scrollTo(0, 0); fixZoom(); fitLayout(); }, t); });
+  [120, 400, 900, 1600].forEach(function(t){ setTimeout(function(){ if (top) window.scrollTo(0, 0); fixZoom(); fitLayout(); }, t); });
 }
 
 if (window.visualViewport) {
   var vvTimer = null;
   window.visualViewport.addEventListener("resize", function(){ clearTimeout(vvTimer); vvTimer = setTimeout(refit, 60); });
-  window.visualViewport.addEventListener("scroll", function(){ clearTimeout(vvTimer); vvTimer = setTimeout(refit, 60); });
+  /* visualViewport の scroll は iPhone の通常スクロールでも発火する＝refit で先頭に戻ってしまうので使わない */
 }
 document.getElementById("box").addEventListener("blur", refit);
 var TOUCH = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
@@ -1247,7 +1254,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 72;
+var APP_VER = 73;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
