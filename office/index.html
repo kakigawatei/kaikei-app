@@ -123,6 +123,7 @@
   .pick.done{background:#8aa79a;border-color:#8aa79a}
   @media (prefers-color-scheme:dark){ .copy{background:#22392f} }
   .bub b{font-weight:700}
+  .donebadge{display:inline-block;margin-top:8px;padding:6px 12px;border-radius:999px;background:#e6f3ec;color:var(--accent);font-weight:700;font-size:13px}
   .mic.on{background:#ffe3e3;border-color:#e88;animation:micblink 1s infinite}
   @keyframes micblink{50%{background:#fff}}
   /* 入力中は入力欄を上へ（iPadのキーボードに隠れないように） */
@@ -480,10 +481,21 @@ function drawLog(){
     }).join("");
     var btn = (m.me && m.text) ? '<div class="tools"><button class="copy" data-i="' + i + '" title="この文をコピー">📋</button></div>' : "";
     var ch = m.me ? parseChoices(m.text) : [];
+    /* 承認型（✅/❌）は、そのあとにジョーの「送信しました／見送りました」があれば済み表示にする */
+    if (ch.length && ch[0].emoji === "✅") {
+      var doneTxt = "";
+      for (var j = i + 1; j < rows.length; j++) {
+        var t2 = rows[j].text || "";
+        if (rows[j].me && /送信しました|送信完了|Chatworkへ送信/.test(t2)) { doneTxt = "✅ 送信済み"; break; }
+        if (rows[j].me && /見送りました/.test(t2)) { doneTxt = "🚫 見送り済み"; break; }
+      }
+      if (doneTxt) { ch = []; m._done = doneTxt; }
+    }
     var chHtml = ch.map(function(c){
       return '<button class="pick" data-msg="' + m.id + '" data-emoji="' + encodeURIComponent(c.emoji) +
              '">' + (c.letter.length === 1 ? c.letter + " … " : c.letter + " ") + esc(c.label) + '</button>';
     }).join("");
+    if (m._done) chHtml = '<div class="donebadge">' + m._done + '</div>';
     return '<div class="bub ' + (m.me ? "them" : "") + '">' + imgs + md(m.text) + chHtml + btn +
       '<span class="t">' + when(tsOf(m.ts)) + (m.me ? " ・" + cur.nm : "") + '</span></div>';
   });
@@ -1096,7 +1108,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 64;
+var APP_VER = 65;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
