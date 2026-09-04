@@ -47,6 +47,9 @@
   .bub{max-width:84%;padding:9px 12px;border-radius:14px;font-size:14.5px;line-height:1.55;white-space:pre-wrap;
     word-break:break-word;align-self:flex-end;background:#dbeee2}
   .bub .t{display:block;font-size:10.5px;color:var(--sub);margin-top:4px}
+  .bub.them{align-self:flex-start;background:var(--card);border:1px solid var(--line)}
+  .bub b{font-weight:700}
+  .refresh{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;cursor:pointer;margin-left:auto;padding:6px}
   .empty{color:var(--sub);font-size:13px;text-align:center;margin-top:30px;line-height:1.7}
   .composer{border-top:1px solid var(--line);padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);
     background:var(--card);display:flex;gap:9px;align-items:flex-end}
@@ -87,6 +90,7 @@
   <div class="rhead">
     <button class="back" id="back">‹ もどる</button>
     <div><div class="rname" id="rname"></div></div>
+    <button class="refresh" id="reload">更新</button>
   </div>
   <div class="log" id="log"></div>
   <div class="hint" id="hint"></div>
@@ -108,7 +112,8 @@
 
 <script>
 var FB = { key:"AIzaSyDtDZIEQtBzjujnpTDcXt1QeEU2r-wbg74", proj:"kakigawatei-franchise" };
-var INBOX = "ai_office_inbox", STATUS = "ai_office_status";
+var INBOX = "ai_office_inbox", STATUS = "ai_office_status", FEED = "ai_office_feed";
+var feed = {rooms:{}}, feedTimer = null;
 
 var STAFF = [
   {id:"1532175887494025398", nm:"ジニー", role:"ながおか探検録"},
@@ -200,7 +205,13 @@ function pushHist(room, item){
 function drawGrid(){
   var g = document.getElementById("grid"); g.innerHTML = "";
   STAFF.forEach(function(s){
+    var rows = (feed.rooms && feed.rooms[s.id]) || [];
     var h = hist(s.id), last = h.length ? h[h.length-1] : null;
+    if (rows.length) {
+      var r = rows[rows.length-1];
+      last = {text:(r.me ? s.nm + "：" : "") + (r.text || (r.img && r.img.length ? "写真" : "")),
+              ts:tsOf(r.ts), ok:true, thumb:(r.img && r.img.length ? r.img[0] : null)};
+    }
     var b = document.createElement("button");
     b.className = "tile";
     b.innerHTML = '<div class="nm">' + s.nm + '</div>' +
@@ -229,20 +240,34 @@ function openRoom(s){
   document.getElementById("room").classList.add("on");
   if (location.hash !== "#room") history.pushState({room:1}, "", "#room");
   document.getElementById("box").focus();
+  loadFeed();
+  if (feedTimer) clearInterval(feedTimer);
+  feedTimer = setInterval(loadFeed, 12000);
 }
 function drawLog(){
-  var l = document.getElementById("log"), h = hist(cur.id);
-  if (!h.length) { l.innerHTML = '<div class="empty">まだ何も送っていません。<br>下の欄に打つか、マイクで話しかけてください。</div>'; return; }
-  l.innerHTML = h.map(function(m){
-    return '<div class="bub">' +
-      (m.thumb ? '<img src="' + m.thumb + '" alt="">' : "") + esc(m.text) +
-      '<span class="t">' + when(m.ts) + (m.ok ? " ・届いた" : " ・送信中") + '</span></div>';
-  }).join("");
+  var l = document.getElementById("log");
+  var rows = (feed.rooms && feed.rooms[cur.id]) || [];
+  var html = rows.map(function(m){
+    var imgs = (m.img || []).map(function(u){ return '<img src="' + u + '" alt="">'; }).join("");
+    return '<div class="bub ' + (m.me ? "them" : "") + '">' + imgs + md(m.text) +
+      '<span class="t">' + when(tsOf(m.ts)) + (m.me ? " ・" + cur.nm : "") + '</span></div>';
+  });
+  /* まだDiscordに写っていない直近の送信ぶんを足す */
+  var seen = rows.map(function(m){ return (m.text || "").trim(); });
+  hist(cur.id).forEach(function(m){
+    if (Date.now() - m.ts > 120000) return;
+    if (m.text && seen.indexOf(m.text.trim()) >= 0) return;
+    html.push('<div class="bub">' + (m.thumb ? '<img src="' + m.thumb + '" alt="">' : "") +
+      esc(m.text) + '<span class="t">' + when(m.ts) + (m.ok ? " ・届いた" : " ・送信中") + '</span></div>');
+  });
+  l.innerHTML = html.length ? html.join("")
+    : '<div class="empty">まだやり取りがありません。<br>下の欄に打つか、マイクで話しかけてください。</div>';
   l.scrollTop = l.scrollHeight;
 }
 function closeRoom(){
   document.getElementById("room").classList.remove("on");
-  drawGrid();
+  if (feedTimer) { clearInterval(feedTimer); feedTimer = null; }
+  cur = null; drawGrid();
 }
 document.getElementById("back").onclick = function(){
   if (location.hash === "#room") { history.back(); } else { closeRoom(); }
@@ -331,6 +356,18 @@ document.getElementById("send").onclick = function(){
   }).then(function(){ btn.disabled = false; });
 };
 
+/* ---------- 返事の取り込み（PCの受け取り係がDiscordを読んで置いてくれる） ---------- */
+function loadFeed(){
+  return readDoc(FEED).then(function(d){
+    if (d && d.rooms) { feed = d; if (cur) drawLog(); drawGridQuiet(); }
+  }).catch(function(){});
+}
+function drawGridQuiet(){ if (!document.getElementById("room").classList.contains("on")) drawGrid(); }
+function md(t){
+  return esc(t).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+}
+function tsOf(iso){ var d = new Date(iso); return isNaN(d) ? Date.now() : d.getTime(); }
+
 /* ---------- PCのランプ ---------- */
 function lamp(){
   readDoc(STATUS).then(function(d){
@@ -343,7 +380,8 @@ function lamp(){
     document.getElementById("lamp").textContent = "通信できません";
   });
 }
-drawGrid(); lamp(); setInterval(lamp, 20000);
+document.getElementById("reload").onclick = loadFeed;
+drawGrid(); lamp(); loadFeed(); setInterval(lamp, 20000);
 </script>
 </body>
 </html>
