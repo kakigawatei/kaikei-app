@@ -130,8 +130,12 @@
   .bub img{display:block;max-width:100%;max-height:210px;width:auto;border-radius:9px;margin-bottom:5px;cursor:zoom-in}
   .bub img.big{max-height:none;width:100%}
   .thumb{padding:0 12px 8px;display:flex;gap:8px;align-items:center;font-size:12px;color:var(--sub)}
-  .thumb img{height:52px;border-radius:8px;border:1px solid var(--line)}
-  .thumb button{border:0;background:none;color:var(--warn);font:inherit;cursor:pointer}
+  .thumb{flex-wrap:wrap}
+  .thumb .th{position:relative;display:inline-block}
+  .thumb img{height:52px;border-radius:8px;border:1px solid var(--line);display:block}
+  .thumb .th button{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:0;
+    background:var(--warn);color:#fff;font:inherit;font-size:12px;line-height:1;cursor:pointer;padding:0}
+  .thumb .cnt{font-size:11px;color:var(--sub)}
   .hint{font-size:11px;color:var(--sub);padding:0 14px 8px;max-width:820px;width:100%;margin:0 auto}
   dialog{border:0;border-radius:16px;padding:20px;max-width:320px;width:86%}
   dialog input{width:100%;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:10px;margin-top:10px}
@@ -216,7 +220,7 @@
   <div class="thumb" id="thumb" hidden></div>
   <div class="composer">
     <button class="pic" id="pic" title="写真を送る">📷</button>
-    <input type="file" id="file" accept="image/*" hidden>
+    <input type="file" id="file" accept="image/*" multiple hidden>
     <textarea id="box" rows="1" placeholder="話しかける"></textarea>
     <button class="send" id="send">送る</button>
   </div>
@@ -392,6 +396,7 @@ function drawLog(){
     if (Date.now() - m.ts > 120000) return;
     if (m.text && seen.indexOf(m.text.trim()) >= 0) return;
     html.push('<div class="bub">' + (m.thumb ? '<img src="' + m.thumb + '" alt="">' : "") +
+      (m.n > 1 ? '<span class="t">ほか' + (m.n - 1) + '枚</span>' : "") +
       esc(m.text) + '<span class="t">' + when(m.ts) + (m.ok ? " ・届いた" : " ・送信中") + '</span></div>');
   });
   var atBottom = (l.scrollHeight - l.scrollTop - l.clientHeight) < 60 || !l.innerHTML;
@@ -500,7 +505,22 @@ box.addEventListener("input", function(){
 });
 
 /* ---------- 写真 ---------- */
-var pending = null;   /* {full:dataURL(送信用), thumb:dataURL(履歴表示用)} */
+var pending = [];     /* [{full:dataURL(送信用), thumb:dataURL(履歴表示用)}] 複数枚OK */
+function drawThumbs(){
+  var t = document.getElementById("thumb");
+  if (!pending.length) { t.hidden = true; t.innerHTML = ""; return; }
+  t.hidden = false; t.innerHTML = "";
+  pending.forEach(function(p, i){
+    var w = document.createElement("span"); w.className = "th";
+    var im = new Image(); im.src = p.thumb; w.appendChild(im);
+    var x = document.createElement("button"); x.textContent = "×"; x.title = "外す";
+    x.onclick = function(){ pending.splice(i, 1); drawThumbs(); };
+    w.appendChild(x); t.appendChild(w);
+  });
+  var sp = document.createElement("span"); sp.className = "cnt";
+  sp.textContent = pending.length + "枚";
+  t.appendChild(sp);
+}
 
 function shrink(file, maxSide, quality){
   return new Promise(function(res, rej){
@@ -533,43 +553,40 @@ function fitForSend(file){
 
 document.getElementById("pic").onclick = function(){ document.getElementById("file").click(); };
 document.getElementById("file").onchange = function(){
-  var f = this.files && this.files[0]; this.value = "";
-  attachFile(f);
+  var fs = Array.prototype.slice.call(this.files || []); this.value = "";
+  fs.forEach(attachFile);
 };
 function attachFile(f){
   if (!f) return;
+  if (pending.length >= 8) { alert("1通に付けられるのは8枚までです"); return; }
   var t = document.getElementById("thumb");
-  t.hidden = false; t.textContent = "写真を準備しています…";
+  t.hidden = false;
   Promise.all([fitForSend(f), shrink(f, 240, .6)]).then(function(a){
-    pending = {full:a[0], thumb:a[1]};
-    t.innerHTML = "";
-    var im = new Image(); im.src = pending.thumb; t.appendChild(im);
-    var sp = document.createElement("span");
-    sp.textContent = "写真を1枚 添付（" + Math.round(pending.full.length/1400) + "KB）";
-    t.appendChild(sp);
-    var bt = document.createElement("button"); bt.textContent = "やめる";
-    bt.onclick = function(){ pending = null; t.hidden = true; t.innerHTML = ""; };
-    t.appendChild(bt);
+    pending.push({full:a[0], thumb:a[1]});
+    drawThumbs();
   }).catch(function(e){
-    t.hidden = true; alert("写真を読めませんでした：" + e.message);
+    drawThumbs(); alert("写真を読めませんでした：" + e.message);
   });
 }
 
 /* 貼り付け（Ctrl+V / Cmd+V）で画像を添付 */
-function pickImage(dt){
-  if (!dt) return null;
+function pickImages(dt){
+  var out = [];
+  if (!dt) return out;
   var files = dt.files || [];
-  for (var i = 0; i < files.length; i++) if ((files[i].type || "").indexOf("image/") === 0) return files[i];
-  var items = dt.items || [];
-  for (var j = 0; j < items.length; j++) {
-    if ((items[j].type || "").indexOf("image/") === 0) { var f = items[j].getAsFile(); if (f) return f; }
+  for (var i = 0; i < files.length; i++) if ((files[i].type || "").indexOf("image/") === 0) out.push(files[i]);
+  if (!out.length) {
+    var items = dt.items || [];
+    for (var j = 0; j < items.length; j++) {
+      if ((items[j].type || "").indexOf("image/") === 0) { var f = items[j].getAsFile(); if (f) out.push(f); }
+    }
   }
-  return null;
+  return out;
 }
 document.addEventListener("paste", function(e){
   if (!document.getElementById("room").classList.contains("on")) return;
-  var f = pickImage(e.clipboardData);
-  if (f) { e.preventDefault(); attachFile(f); }
+  var fs = pickImages(e.clipboardData);
+  if (fs.length) { e.preventDefault(); fs.forEach(attachFile); }
 });
 /* ドラッグ＆ドロップ（Finderの画像ファイルを会話に落とす） */
 ["dragover", "dragenter"].forEach(function(ev){
@@ -583,8 +600,7 @@ document.addEventListener("drop", function(e){
   document.body.classList.remove("dropping");
   if (!document.getElementById("room").classList.contains("on")) return;
   e.preventDefault();
-  var f = pickImage(e.dataTransfer);
-  if (f) attachFile(f);
+  pickImages(e.dataTransfer).forEach(attachFile);
 });
 
 /* パソコンのキーボードのときだけ Enter で送信（Shift+Enter は改行） */
@@ -597,21 +613,22 @@ box.addEventListener("keydown", function(e){
 });
 
 document.getElementById("send").onclick = function(){
-  var text = box.value.trim(); if ((!text && !pending) || !cur) return;
+  var text = box.value.trim(); if ((!text && !pending.length) || !cur) return;
   var btn = this; btn.disabled = true;
-  var shot = pending; pending = null;
-  var t = document.getElementById("thumb"); t.hidden = true; t.innerHTML = "";
+  var shots = pending; pending = []; drawThumbs();
   var mid = "m" + Date.now() + Math.floor(Math.random()*1000);
-  var item = {id:mid, text:text, ts:Date.now(), ok:false, thumb: shot ? shot.thumb : null};
+  var item = {id:mid, text:text, ts:Date.now(), ok:false, thumb: shots.length ? shots[0].thumb : null, n: shots.length};
   pushHist(cur.id, item); box.value = ""; box.style.height = "auto"; forceBottom = true; drawLog();
   try { var sent = JSON.parse(localStorage.getItem("office_sent") || "[]"); sent.push(mid); localStorage.setItem("office_sent", JSON.stringify(sent.slice(-50))); } catch(e){}
   if (typeof fitLayout === "function") setTimeout(fitLayout, 0);
 
-  var first = shot ? writeDoc("ai_office_img_" + mid, {b64: shot.full}) : Promise.resolve();
+  var ids = shots.map(function(_, k){ return "ai_office_img_" + mid + (k ? "_" + k : ""); });
+  var first = Promise.resolve();
+  shots.forEach(function(sh, k){ first = first.then(function(){ return writeDoc(ids[k], {b64: sh.full}); }); });
   first.then(function(){ return readDoc(INBOX); }).then(function(d){
     var msgs = d.msgs || [];
     msgs.push({ id:mid, room:cur.id, name:cur.nm, text:text, ts:Date.now(), pass:pass,
-                img: shot ? ("ai_office_img_" + mid) : null });
+                img: ids.length ? ids[0] : null, imgs: ids });
     d.msgs = msgs.slice(-100);
     return writeDoc(INBOX, d);
   }).then(function(){
@@ -787,7 +804,7 @@ document.getElementById("newpill").onclick = function(){ var l = document.getEle
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 41;
+var APP_VER = 42;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
