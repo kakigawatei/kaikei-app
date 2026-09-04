@@ -66,6 +66,7 @@
     color:var(--accent);font:inherit;font-size:13.5px;font-weight:700;border-radius:10px;
     padding:9px 12px;cursor:pointer;text-align:center}
   .copy.done{background:var(--accent);color:#fff}
+  .copy.img{margin-top:6px;margin-bottom:4px;font-size:12.5px;padding:7px 12px}
   @media (prefers-color-scheme:dark){ .copy{background:#22392f} }
   .bub b{font-weight:700}
   .refresh{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;cursor:pointer;margin-left:auto;padding:6px}
@@ -97,7 +98,7 @@
 </head>
 <body>
 <header>
-  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v6</span></h1>
+  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v7</span></h1>
   <div class="lamp"><span class="dot" id="dot"></span><span id="lamp">確認中…</span></div>
 </header>
 
@@ -272,7 +273,10 @@ function drawLog(){
   var l = document.getElementById("log");
   var rows = (feed.rooms && feed.rooms[cur.id]) || [];
   var html = rows.map(function(m, i){
-    var imgs = (m.img || []).map(function(u){ return '<img src="' + u + '" alt="">'; }).join("");
+    var imgs = (m.img || []).map(function(u){
+      return '<img src="' + u + '" alt="">' +
+             '<button class="copy img" data-url="' + u + '">🖼 画像をコピー</button>';
+    }).join("");
     var btn = (m.me && m.text) ? '<button class="copy" data-i="' + i + '">📋 この文をコピー</button>' : "";
     return '<div class="bub ' + (m.me ? "them" : "") + '">' + imgs + md(m.text) + btn +
       '<span class="t">' + when(tsOf(m.ts)) + (m.me ? " ・" + cur.nm : "") + '</span></div>';
@@ -290,6 +294,8 @@ function drawLog(){
   Array.prototype.forEach.call(l.querySelectorAll(".copy"), function(b){
     b.onclick = function(ev){
       ev.stopPropagation();
+      var u = b.getAttribute("data-url");
+      if (u) { copyImage(u, b); return; }
       var raw = (rows[+b.getAttribute("data-i")].text || "").replace(/\*\*/g, "");
       copyText(raw, b);
     };
@@ -302,6 +308,33 @@ function copyText(t, btn){
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(t).then(done, function(){ fallback(t, done); });
   } else { fallback(t, done); }
+}
+/* 画像をPNGにしてクリップボードへ（SafariはPNGのみ・押した瞬間にClipboardItemを作る必要がある） */
+function toPng(url){
+  return fetch(url, {mode:"cors"}).then(function(r){ return r.blob(); }).then(function(b){
+    return new Promise(function(res, rej){
+      var im = new Image(), o = URL.createObjectURL(b);
+      im.onload = function(){
+        var c = document.createElement("canvas");
+        c.width = im.naturalWidth; c.height = im.naturalHeight;
+        c.getContext("2d").drawImage(im, 0, 0);
+        URL.revokeObjectURL(o);
+        c.toBlob(function(png){ png ? res(png) : rej(new Error("png")); }, "image/png");
+      };
+      im.onerror = function(){ URL.revokeObjectURL(o); rej(new Error("load")); };
+      im.crossOrigin = "anonymous"; im.src = o;
+    });
+  });
+}
+function copyImage(url, btn){
+  var ok = function(){ btn.textContent = "✅ コピーしました"; btn.className = "copy img done";
+    setTimeout(function(){ btn.textContent = "🖼 画像をコピー"; btn.className = "copy img"; }, 1800); };
+  var ng = function(){ btn.textContent = "長押しして「写真に追加」";
+    setTimeout(function(){ btn.textContent = "🖼 画像をコピー"; }, 2600); };
+  if (!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write)) { ng(); return; }
+  try {
+    navigator.clipboard.write([ new ClipboardItem({ "image/png": toPng(url) }) ]).then(ok, ng);
+  } catch(e){ ng(); }
 }
 function fallback(t, done){
   var ta = document.createElement("textarea");
