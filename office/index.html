@@ -123,6 +123,11 @@
   .pick.done{background:#8aa79a;border-color:#8aa79a}
   @media (prefers-color-scheme:dark){ .copy{background:#22392f} }
   .bub b{font-weight:700}
+  .ttsauto{margin-top:6px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#556;font:inherit;font-size:12px;padding:4px 10px;cursor:pointer}
+  .ttsauto.on{background:#eaf5ef;border-color:#bfe0cd;color:var(--accent);font-weight:700}
+  .bub .say{position:absolute;right:8px;top:6px;border:0;background:rgba(0,0,0,.06);border-radius:999px;font-size:13px;padding:3px 7px;cursor:pointer}
+  .bub .say.on{background:#ffe3e3}
+  .bub{position:relative}
   .donebadge{display:inline-block;margin-top:8px;padding:6px 12px;border-radius:999px;background:#e6f3ec;color:var(--accent);font-weight:700;font-size:13px}
   .mic.on{background:#ffe3e3;border-color:#e88;animation:micblink 1s infinite}
   @keyframes micblink{50%{background:#fff}}
@@ -233,6 +238,7 @@
   <div class="lamp"><span class="dot" id="dot"></span><span id="lamp">確認中…</span>
     <span class="legend"><i class="lp free"></i>手あき <i class="lp busy"></i>作業中 <i class="lp wait"></i>返事待ち</span></div>
   <div class="newver" id="newver" hidden>新しい版があります <button id="doreload">更新する</button></div>
+  <button class="ttsauto" id="ttsauto" hidden title="届いた返事を自動で読み上げる">🔊 自動読み上げ OFF</button>
 </header>
 
 <main>
@@ -409,6 +415,46 @@ function openRoom(s){
   feedTimer = setInterval(loadFeed, 15000);
 }
 var LOG_STEP = 40;            /* 一度に描く件数 */
+/* ---------- 読み上げ（Web Speech Synthesis） ---------- */
+var TTS_OK = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
+var ttsAuto = false, ttsLastId = null, ttsBtnOn = null;
+function ttsClean(t){
+  return (t || "")
+    .replace(/https?:\/\/\S+/g, "リンク")
+    .replace(/[\*_`#>]/g, "")
+    .replace(/[📌🔴🟡🟢✅❌📎📋🔊🗣🇦🇧🇨🇩🇪]/g, "")
+    .replace(/\n{2,}/g, "。").replace(/\n/g, "、");
+}
+function speakText(t, btn){
+  if (!TTS_OK) return;
+  var ss = window.speechSynthesis;
+  if (ss.speaking) { ss.cancel(); if (ttsBtnOn) ttsBtnOn.className = "say"; if (ttsBtnOn === btn) { ttsBtnOn = null; return; } }
+  var u = new SpeechSynthesisUtterance(ttsClean(t).slice(0, 1800));
+  u.lang = "ja-JP"; u.rate = 1.1;
+  var v = (ss.getVoices() || []).filter(function(x){ return x.lang === "ja-JP"; });
+  var pref = v.filter(function(x){ return /Kyoko|Otoya|O-ren|Hattori|Google/.test(x.name); })[0] || v[0];
+  if (pref) u.voice = pref;
+  ttsBtnOn = btn; if (btn) btn.className = "say on";
+  u.onend = u.onerror = function(){ if (btn) btn.className = "say"; if (ttsBtnOn === btn) ttsBtnOn = null; };
+  ss.speak(u);
+}
+if (TTS_OK) {
+  try { window.speechSynthesis.getVoices(); } catch(e){}
+  var tb = document.getElementById("ttsauto");
+  if (tb) {
+    tb.hidden = false;
+    try { ttsAuto = localStorage.getItem("office_tts") === "1"; } catch(e){}
+    tb.className = "ttsauto" + (ttsAuto ? " on" : ""); tb.textContent = "🔊 自動読み上げ " + (ttsAuto ? "ON" : "OFF");
+    tb.onclick = function(){
+      ttsAuto = !ttsAuto;
+      try { localStorage.setItem("office_tts", ttsAuto ? "1" : "0"); } catch(e){}
+      tb.className = "ttsauto" + (ttsAuto ? " on" : ""); tb.textContent = "🔊 自動読み上げ " + (ttsAuto ? "ON" : "OFF");
+      /* iOSは最初の1回をユーザー操作の中で鳴らす必要がある → ここで短く鳴らして許可を取る */
+      if (ttsAuto) speakText("自動読み上げをオンにしました", null); else window.speechSynthesis.cancel();
+      fitLayout();
+    };
+  }
+}
 var roomHist = {};            /* 部屋ごとの履歴（ai_office_room_<id>） */
 var histLoading = false;
 function roomRows(id){
@@ -480,6 +526,7 @@ function drawLog(){
       return '<a class="file" href="' + f.url + '" target="_blank" rel="noopener">' + esc(f.name || "ファイル") + (f.size ? ' <small>(' + Math.round(f.size / 1024) + 'KB)</small>' : '') + '</a>';
     }).join("");
     var btn = (m.me && m.text) ? '<div class="tools"><button class="copy" data-i="' + i + '" title="この文をコピー">📋</button></div>' : "";
+    var say = (m.me && m.text && TTS_OK) ? '<button class="say" data-i="' + i + '" title="読み上げ">🔊</button>' : "";
     var ch = m.me ? parseChoices(m.text) : [];
     /* 承認型（✅/❌）は、そのあとにジョーの「送信しました／見送りました」があれば済み表示にする */
     if (ch.length && ch[0].emoji === "✅") {
@@ -496,7 +543,7 @@ function drawLog(){
              '">' + (c.letter.length === 1 ? c.letter + " … " : c.letter + " ") + esc(c.label) + '</button>';
     }).join("");
     if (m._done) chHtml = '<div class="donebadge">' + m._done + '</div>';
-    return '<div class="bub ' + (m.me ? "them" : "") + '">' + imgs + md(m.text) + chHtml + btn +
+    return '<div class="bub ' + (m.me ? "them" : "") + '">' + say + imgs + md(m.text) + chHtml + btn +
       '<span class="t">' + when(tsOf(m.ts)) + (m.me ? " ・" + cur.nm : "") + '</span></div>';
   });
   /* まだDiscordに写っていない直近の送信ぶんを足す */
@@ -542,6 +589,19 @@ function drawLog(){
       sendChoice(b.getAttribute("data-msg"), decodeURIComponent(b.getAttribute("data-emoji")));
     };
   });
+  Array.prototype.forEach.call(l.querySelectorAll(".say"), function(b){
+    b.onclick = function(ev){
+      ev.stopPropagation();
+      var raw = (rows[+b.getAttribute("data-i")].text || "");
+      speakText(raw, b);
+    };
+  });
+  /* 自動読み上げ: 部屋を開いている間に届いた私の新しい返事を読む */
+  if (ttsAuto && rows.length) {
+    var last = rows[rows.length - 1];
+    if (last.me && last.text && last.id !== ttsLastId && ttsLastId !== null) speakText(last.text, null);
+    ttsLastId = last.id;
+  } else if (rows.length) { ttsLastId = rows[rows.length - 1].id; }
   Array.prototype.forEach.call(l.querySelectorAll(".copy"), function(b){
     b.onclick = function(ev){
       ev.stopPropagation();
@@ -1108,7 +1168,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 65;
+var APP_VER = 66;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
