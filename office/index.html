@@ -24,8 +24,10 @@
   .dot.ok{background:#2ecc71} .dot.ng{background:var(--warn)}
   main{padding:14px 16px 40px;max-width:1000px;margin:0 auto}
   .office{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);
-    margin-bottom:14px;background:var(--card)}
-  .office img{display:block;width:100%}
+    margin:0 auto 14px;background:var(--card);width:fit-content;max-width:100%}
+  .office img{display:block;width:100%;max-width:100%}
+  .face{position:absolute;left:50%;top:-14%;transform:translateX(-50%);width:46%;
+    pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))}
   .seat{position:absolute;transform:translate(-50%,-50%);width:13%;height:17%;border:0;
     background:transparent;border-radius:14%;cursor:pointer;padding:0}
   .seat:active{background:rgba(47,111,78,.16)}
@@ -93,6 +95,14 @@
   dialog input{width:100%;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:10px;margin-top:10px}
   dialog button{margin-top:12px;width:100%;padding:11px;border:0;border-radius:10px;background:var(--accent);
     color:#fff;font:inherit;font-weight:700}
+  @media (min-width:900px){
+    main{max-width:none;padding-right:calc(44vw + 16px)}
+    .office img{width:auto;max-height:calc(100vh - 230px)}
+    #room.on{left:auto;right:0;top:0;width:44vw;height:100vh;
+      border-left:1px solid var(--line);box-shadow:-6px 0 18px rgba(0,0,0,.06)}
+    .rhead{padding-top:16px}
+    .log,.composer,.hint,.rhead{max-width:none}
+  }
   @media (prefers-color-scheme:dark){
     :root{--bg:#15181c;--card:#1e232a;--ink:#eef1f5;--sub:#98a2ae;--line:#2c333c;--accent:#4fb383}
     .bub{background:#26443a} .badge{background:#262d35} .badge.done{background:#22392f;color:#7fd0aa}
@@ -101,7 +111,7 @@
 </head>
 <body>
 <header>
-  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v9</span></h1>
+  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v10</span></h1>
   <div class="lamp"><span class="dot" id="dot"></span><span id="lamp">確認中…</span></div>
 </header>
 
@@ -143,7 +153,7 @@ var feed = {rooms:{}}, feedTimer = null;
 
 var STAFF = [
   {id:"1532176222946197635", nm:"コン",   role:"LINE秘書",       x:16.8, y:28.6},
-  {id:"1532175887494025398", nm:"ジニー", role:"ながおか探検録", x:41.1, y:25.2},
+  {id:"1532175887494025398", nm:"ジニー", role:"ながおか探検録", x:41.1, y:25.2, face:"ginny"},
   {id:"1532176144999252038", nm:"リー",   role:"広告・動画",     x:67.1, y:27.6},
   {id:"1532176037109174503", nm:"ジョー", role:"経理・会計",     x:91.1, y:29.0},
   {id:"1532724627934154842", nm:"ポム",   role:"AI事業",         x:27.5, y:60.0},
@@ -468,6 +478,15 @@ function loadFeed(){
     if (d && d.rooms) { feed = d; if (cur) drawLog(); drawGridQuiet(); drawSeats(); }
   }).catch(function(){});
 }
+/* いまの様子を、直近のやり取りから決める */
+function mood(st){
+  var rows = (st.id && feed.rooms && feed.rooms[st.id]) || [];
+  if (!rows.length) return "free";
+  var last = rows[rows.length-1];
+  if (!last.me) return "busy";                       /* masaが投げた直後＝私が動いている */
+  if (/[？?]\s*$|ください|どちらに|選んで|教えて|いいですか|ますか/.test(last.text || "")) return "wait";
+  return "free";
+}
 function drawSeats(){
   var o = document.getElementById("office");
   Array.prototype.forEach.call(o.querySelectorAll(".seat"), function(e){ e.remove(); });
@@ -478,7 +497,8 @@ function drawSeats(){
     b.style.left = st.x + "%"; b.style.top = st.y + "%";
     var rows = (st.id && feed.rooms && feed.rooms[st.id]) || [];
     if (rows.length) b.className += " live";
-    b.innerHTML = '<span class="sdot"></span><span class="tag">' + st.nm + '</span>';
+    var fh = st.face ? '<img class="face" src="faces/' + st.face + "_" + mood(st) + '.png" alt="">' : "";
+    b.innerHTML = fh + '<span class="sdot"></span><span class="tag">' + st.nm + '</span>';
     b.onclick = function(){
       if (!st.id) { alert(st.nm + "さんの部屋は、まだDiscordに作っていません。作るならmasaの一声で用意します。"); return; }
       openRoom(st);
