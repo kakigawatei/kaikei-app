@@ -110,6 +110,10 @@
   .bub b{font-weight:700}
   .refresh{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;cursor:pointer;margin-left:auto;padding:6px}
   .empty{color:var(--sub);font-size:13px;text-align:center;margin-top:30px;line-height:1.7}
+  .newpill{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--ch) + 14px);z-index:3;
+    border:0;border-radius:999px;background:var(--accent);color:#fff;font:inherit;font-size:12.5px;font-weight:700;
+    padding:7px 14px;box-shadow:0 3px 10px rgba(0,0,0,.2);cursor:pointer}
+  @media (max-width:899px){ .newpill{bottom:calc(env(safe-area-inset-bottom) + 96px)} }
   .composer{border-top:1px solid var(--line);padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);
     background:var(--card);display:flex;gap:9px;align-items:flex-end}
   .cwrap{background:var(--card)}
@@ -207,6 +211,7 @@
     <button class="refresh" id="reload">更新</button>
   </div>
   <div class="log" id="log"></div>
+  <button class="newpill" id="newpill" hidden>↓ 新しい返事</button>
   <div class="hint" id="hint"></div>
   <div class="thumb" id="thumb" hidden></div>
   <div class="composer">
@@ -354,7 +359,7 @@ function openRoom(s){
   cur = s;
   document.getElementById("rname").textContent = s.nm + "（" + s.role + "）";
   document.getElementById("hint").textContent = "返事はここに出ます（Discordの「" + s.nm + "」の部屋にも残ります）";
-  drawLog();
+  forceBottom = true; drawLog();
   document.getElementById("room").classList.add("on");
   if (location.hash !== "#room") history.pushState({room:1}, "", "#room");
   /* スマホでは勝手にキーボードを出さない（読む邪魔になる）。物理キーボードの端末だけ入力欄へ */
@@ -362,14 +367,14 @@ function openRoom(s){
   fitLayout();
   loadFeed();
   if (feedTimer) clearInterval(feedTimer);
-  feedTimer = setInterval(loadFeed, 12000);
+  feedTimer = setInterval(loadFeed, 15000);
 }
 function drawLog(){
   var l = document.getElementById("log");
   var rows = (feed.rooms && feed.rooms[cur.id]) || [];
   var html = rows.map(function(m, i){
     var imgs = (m.img || []).map(function(u){
-      return '<span class="imgwrap"><img src="' + u + '" alt="">' +
+      return '<span class="imgwrap"><img src="' + u + '" alt="" loading="lazy" decoding="async">' +
              '<button class="copy img" data-url="' + u + '" title="画像をコピー">🖼</button></span>';
     }).join("");
     var btn = (m.me && m.text) ? '<div class="tools"><button class="copy" data-i="' + i + '" title="この文をコピー">📋</button></div>' : "";
@@ -389,6 +394,8 @@ function drawLog(){
     html.push('<div class="bub">' + (m.thumb ? '<img src="' + m.thumb + '" alt="">' : "") +
       esc(m.text) + '<span class="t">' + when(m.ts) + (m.ok ? " ・届いた" : " ・送信中") + '</span></div>');
   });
+  var atBottom = (l.scrollHeight - l.scrollTop - l.clientHeight) < 60 || !l.innerHTML;
+  var keepTop = l.scrollTop;
   l.innerHTML = html.length ? html.join("")
     : '<div class="empty">まだやり取りがありません。<br>下の欄に打つか、マイクで話しかけてください。</div>';
   Array.prototype.forEach.call(l.querySelectorAll(".bub img"), function(im){
@@ -414,8 +421,13 @@ function drawLog(){
       copyText(raw, b);
     };
   });
-  l.scrollTop = l.scrollHeight;
+  if (atBottom || forceBottom) { l.scrollTop = l.scrollHeight; hideNew(); }
+  else { l.scrollTop = keepTop; showNew(); }
+  forceBottom = false;
 }
+var forceBottom = false;
+function showNew(){ var n = document.getElementById("newpill"); if (n) n.hidden = false; }
+function hideNew(){ var n = document.getElementById("newpill"); if (n) n.hidden = true; }
 /* 選択肢を押したら、Discordのその発言に絵文字を付けにいく＝Discordで押したのと同じ扱いになる */
 function sendChoice(msgId, emoji){
   readDoc(INBOX).then(function(d){
@@ -589,7 +601,7 @@ document.getElementById("send").onclick = function(){
   var t = document.getElementById("thumb"); t.hidden = true; t.innerHTML = "";
   var mid = "m" + Date.now() + Math.floor(Math.random()*1000);
   var item = {text:text, ts:Date.now(), ok:false, thumb: shot ? shot.thumb : null};
-  pushHist(cur.id, item); box.value = ""; box.style.height = "auto"; drawLog();
+  pushHist(cur.id, item); box.value = ""; box.style.height = "auto"; forceBottom = true; drawLog();
   if (typeof fitLayout === "function") setTimeout(fitLayout, 0);
 
   var first = shot ? writeDoc("ai_office_img_" + mid, {b64: shot.full}) : Promise.resolve();
@@ -609,11 +621,26 @@ document.getElementById("send").onclick = function(){
 };
 
 /* ---------- 返事の取り込み（PCの受け取り係がDiscordを読んで置いてくれる） ---------- */
+var feedSig = "";
+function sigOf(d){
+  var rooms = (d && d.rooms) || {}, out = [];
+  Object.keys(rooms).sort().forEach(function(k){
+    var a = rooms[k] || [], l = a.length ? a[a.length-1] : null;
+    out.push(k + ":" + a.length + ":" + (l ? l.id : "") + ":" + (l ? (l.text || "").length : 0));
+  });
+  return out.join("|");
+}
 function loadFeed(){
+  if (document.hidden) return Promise.resolve();          /* 裏にいる間は読まない（戻ったら即読む） */
   return readDoc(FEED).then(function(d){
-    if (d && d.rooms) { feed = d; if (cur) drawLog(); drawGridQuiet(); drawSeats(); drawWait(); }
+    if (!(d && d.rooms)) return;
+    var sg = sigOf(d);
+    if (sg === feedSig) return;                            /* 変化なし＝描き直さない（これがカクつきの元） */
+    feedSig = sg; feed = d;
+    if (cur) drawLog(); drawGridQuiet(); drawSeats(); drawWait();
   }).catch(function(){});
 }
+document.addEventListener("visibilitychange", function(){ if (!document.hidden) { loadFeed(); lamp(); } });
 /* いまの様子を、直近のやり取りから決める */
 var MOODJA = {busy:"作業中", free:"手あき", wait:"返事待ち"};
 function drawWait(){
@@ -733,11 +760,12 @@ function fitLayout(){
 window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
-document.getElementById("reload").onclick = loadFeed;
+document.getElementById("reload").onclick = function(){ feedSig = ""; forceBottom = true; loadFeed(); };
+document.getElementById("newpill").onclick = function(){ var l = document.getElementById("log"); l.scrollTop = l.scrollHeight; hideNew(); };
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 39;
+var APP_VER = 40;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
@@ -759,7 +787,7 @@ function checkVer(){
 document.getElementById("doreload").onclick = function(){ location.reload(); };
 drawGrid(); drawSeats(); lamp(); loadFeed(); drawWait();
 setInterval(lamp, 20000);
-setInterval(function(){ if (!cur) loadFeed(); }, 20000);   /* 一覧画面も自動で新しくする */
+setInterval(function(){ if (!cur) loadFeed(); }, 25000);   /* 一覧画面も自動で新しくする */
 setInterval(checkVer, 45000); setTimeout(checkVer, 3000);
 </script>
 </body>
