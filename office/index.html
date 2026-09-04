@@ -98,7 +98,7 @@
 </head>
 <body>
 <header>
-  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v7</span></h1>
+  <h1>AIオフィス <span style="font-size:11px;color:#8a94a0;font-weight:400">v8</span></h1>
   <div class="lamp"><span class="dot" id="dot"></span><span id="lamp">確認中…</span></div>
 </header>
 
@@ -121,7 +121,7 @@
   <div class="composer">
     <button class="pic" id="pic" title="写真を送る">📷</button>
     <input type="file" id="file" accept="image/*" hidden>
-    <textarea id="box" rows="1" placeholder="話しかける（マイクでもOK）"></textarea>
+    <textarea id="box" rows="1" placeholder="話しかける（マイク・画像の貼り付けもOK）"></textarea>
     <button class="send" id="send">送る</button>
   </div>
 </section>
@@ -392,6 +392,9 @@ function fitForSend(file){
 document.getElementById("pic").onclick = function(){ document.getElementById("file").click(); };
 document.getElementById("file").onchange = function(){
   var f = this.files && this.files[0]; this.value = "";
+  attachFile(f);
+};
+function attachFile(f){
   if (!f) return;
   var t = document.getElementById("thumb");
   t.hidden = false; t.textContent = "写真を準備しています…";
@@ -408,7 +411,28 @@ document.getElementById("file").onchange = function(){
   }).catch(function(e){
     t.hidden = true; alert("写真を読めませんでした：" + e.message);
   });
-};
+}
+
+/* 貼り付け（Ctrl+V / Cmd+V）で画像を添付 */
+document.addEventListener("paste", function(e){
+  if (!document.getElementById("room").classList.contains("on")) return;
+  var items = (e.clipboardData && e.clipboardData.items) || [];
+  for (var i = 0; i < items.length; i++) {
+    if ((items[i].type || "").indexOf("image/") === 0) {
+      var f = items[i].getAsFile();
+      if (f) { e.preventDefault(); attachFile(f); return; }
+    }
+  }
+});
+
+/* パソコンのキーボードのときだけ Enter で送信（Shift+Enter は改行） */
+box.addEventListener("keydown", function(e){
+  if (e.key !== "Enter" || e.shiftKey) return;
+  if (e.isComposing || e.keyCode === 229) return;      /* 日本語の変換中は送らない */
+  if (!window.matchMedia || !window.matchMedia("(pointer: fine)").matches) return;
+  e.preventDefault();
+  document.getElementById("send").click();
+});
 
 document.getElementById("send").onclick = function(){
   var text = box.value.trim(); if ((!text && !pending) || !cur) return;
