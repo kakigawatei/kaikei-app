@@ -125,6 +125,9 @@
   .bub b{font-weight:700}
   .ttsauto{margin-top:6px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#556;font:inherit;font-size:12px;padding:4px 10px;cursor:pointer}
   .ttsauto.on{background:#eaf5ef;border-color:#bfe0cd;color:var(--accent);font-weight:700}
+  .ttsstop{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--ch, 90px) + 18px);z-index:40;border:0;border-radius:999px;
+    background:#c0392b;color:#fff;font:inherit;font-size:15px;font-weight:700;padding:12px 22px;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer}
+  body.pin .ttsstop{bottom:22px}
   .bub .say{position:absolute;right:8px;top:6px;border:0;background:rgba(0,0,0,.06);border-radius:999px;font-size:13px;padding:3px 7px;cursor:pointer}
   .bub .say.on{background:#ffe3e3}
   .bub{position:relative}
@@ -239,6 +242,7 @@
     <span class="legend"><i class="lp free"></i>手あき <i class="lp busy"></i>作業中 <i class="lp wait"></i>返事待ち</span></div>
   <div class="newver" id="newver" hidden>新しい版があります <button id="doreload">更新する</button></div>
   <button class="ttsauto" id="ttsauto" hidden title="届いた返事を自動で読み上げる">🔊 自動読み上げ OFF</button>
+  <button class="ttsstop" id="ttsstop" hidden>⏹ 読み上げを止める</button>
 </header>
 
 <main>
@@ -435,9 +439,17 @@ function speakText(t, btn){
   var pref = v.filter(function(x){ return /Kyoko|Otoya|O-ren|Hattori|Google/.test(x.name); })[0] || v[0];
   if (pref) u.voice = pref;
   ttsBtnOn = btn; if (btn) btn.className = "say on";
-  u.onend = u.onerror = function(){ if (btn) btn.className = "say"; if (ttsBtnOn === btn) ttsBtnOn = null; };
+  var stopBtn = document.getElementById("ttsstop"); if (stopBtn) stopBtn.hidden = false;
+  u.onend = u.onerror = function(){ if (btn) btn.className = "say"; if (ttsBtnOn === btn) ttsBtnOn = null; if (stopBtn && !ss.speaking) stopBtn.hidden = true; };
   ss.speak(u);
 }
+function stopSpeak(){
+  try { window.speechSynthesis.cancel(); } catch(e){}
+  if (ttsBtnOn) ttsBtnOn.className = "say";
+  ttsBtnOn = null;
+  var stopBtn = document.getElementById("ttsstop"); if (stopBtn) stopBtn.hidden = true;
+}
+(function(){ var b = document.getElementById("ttsstop"); if (b) { b.onclick = stopSpeak; b.addEventListener("touchstart", function(e){ e.preventDefault(); stopSpeak(); }, {passive:false}); } })();
 if (TTS_OK) {
   try { window.speechSynthesis.getVoices(); } catch(e){}
   var tb = document.getElementById("ttsauto");
@@ -1169,7 +1181,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 67;
+var APP_VER = 68;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
