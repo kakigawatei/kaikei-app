@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<title>AIオフィス</title>
+<style>
+  :root{
+    --bg:#f6f4ef; --card:#fff; --ink:#1d2430; --sub:#6b7480;
+    --line:#e4e0d7; --accent:#2f6f4e; --warn:#c0392b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+    -webkit-text-size-adjust:100%}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);
+    padding:calc(env(safe-area-inset-top) + 14px) 16px 10px;border-bottom:1px solid var(--line)}
+  h1{margin:0;font-size:19px;letter-spacing:.02em}
+  .lamp{display:flex;align-items:center;gap:7px;margin-top:6px;font-size:12px;color:var(--sub)}
+  .dot{width:9px;height:9px;border-radius:50%;background:#bbb}
+  .dot.ok{background:#2ecc71} .dot.ng{background:var(--warn)}
+  main{padding:14px 16px 40px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 13px 12px;
+    text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%}
+  .tile:active{transform:scale(.985)}
+  .tile .nm{font-weight:700;font-size:15px}
+  .tile .role{font-size:11.5px;color:var(--sub);margin-top:3px}
+  .tile .last{font-size:11.5px;color:var(--sub);margin-top:8px;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:29px}
+  .badge{display:inline-block;margin-top:8px;font-size:11px;padding:2px 8px;border-radius:999px;
+    background:#eef1ee;color:var(--sub)}
+  .badge.sending{background:#fff3cd;color:#8a6d1f}
+  .badge.done{background:#e6f3ec;color:var(--accent)}
+
+  /* 会話画面 */
+  #room{display:none;position:fixed;inset:0;background:var(--bg);flex-direction:column}
+  #room.on{display:flex}
+  .rhead{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 12px) 14px 10px;
+    border-bottom:1px solid var(--line);background:var(--bg)}
+  .back{border:0;background:none;font:inherit;color:var(--accent);font-size:15px;padding:4px 2px;cursor:pointer}
+  .rname{font-weight:700}
+  .log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:9px}
+  .bub{max-width:84%;padding:9px 12px;border-radius:14px;font-size:14.5px;line-height:1.55;white-space:pre-wrap;
+    word-break:break-word;align-self:flex-end;background:#dbeee2}
+  .bub .t{display:block;font-size:10.5px;color:var(--sub);margin-top:4px}
+  .empty{color:var(--sub);font-size:13px;text-align:center;margin-top:30px;line-height:1.7}
+  .composer{border-top:1px solid var(--line);padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);
+    background:var(--card);display:flex;gap:9px;align-items:flex-end}
+  textarea{flex:1;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;font-size:16px;
+    resize:none;max-height:160px;background:#fff;color:var(--ink)}
+  .send{border:0;border-radius:12px;background:var(--accent);color:#fff;font:inherit;font-weight:700;
+    padding:11px 16px;cursor:pointer}
+  .send:disabled{opacity:.45}
+  .hint{font-size:11px;color:var(--sub);padding:0 14px 8px}
+  dialog{border:0;border-radius:16px;padding:20px;max-width:320px;width:86%}
+  dialog input{width:100%;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:10px;margin-top:10px}
+  dialog button{margin-top:12px;width:100%;padding:11px;border:0;border-radius:10px;background:var(--accent);
+    color:#fff;font:inherit;font-weight:700}
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#15181c;--card:#1e232a;--ink:#eef1f5;--sub:#98a2ae;--line:#2c333c;--accent:#4fb383}
+    .bub{background:#26443a} .badge{background:#262d35} .badge.done{background:#22392f;color:#7fd0aa}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>AIオフィス</h1>
+  <div class="lamp"><span class="dot" id="dot"></span><span id="lamp">確認中…</span></div>
+</header>
+
+<main>
+  <div class="grid" id="grid"></div>
+</main>
+
+<section id="room">
+  <div class="rhead">
+    <button class="back" id="back">‹ もどる</button>
+    <div><div class="rname" id="rname"></div></div>
+  </div>
+  <div class="log" id="log"></div>
+  <div class="hint" id="hint"></div>
+  <div class="composer">
+    <textarea id="box" rows="1" placeholder="話しかける（マイクでもOK）"></textarea>
+    <button class="send" id="send">送る</button>
+  </div>
+</section>
+
+<dialog id="gate">
+  <div style="font-weight:700">合言葉</div>
+  <div style="font-size:12.5px;color:#6b7480;margin-top:6px">この端末では初回だけ聞きます。</div>
+  <input id="pass" type="password" autocomplete="off">
+  <button id="ok">はじめる</button>
+</dialog>
+
+<script>
+var FB = { key:"AIzaSyDtDZIEQtBzjujnpTDcXt1QeEU2r-wbg74", proj:"kakigawatei-franchise" };
+var INBOX = "ai_office_inbox", STATUS = "ai_office_status";
+
+var STAFF = [
+  {id:"1532175887494025398", nm:"ジニー", role:"ながおか探検録"},
+  {id:"1532176037109174503", nm:"ジョー", role:"経理・会計"},
+  {id:"1532176144999252038", nm:"リー",   role:"広告・動画"},
+  {id:"1532176222946197635", nm:"コン",   role:"LINE秘書"},
+  {id:"1542160237723648021", nm:"ずんだ", role:"柿川亭アプリ"},
+  {id:"1542160436487528509", nm:"さくら", role:"山形出店"},
+  {id:"1532724627934154842", nm:"ポム",   role:"AI事業"},
+  {id:"1517471809392476282", nm:"バウ本部", role:"マーケ・全社"}
+];
+
+/* ---------- Firebase（匿名ログイン＋Firestore REST） ---------- */
+var tok = null, exp = 0;
+function jfetch(u, o){ return fetch(u, o).then(function(r){
+  if(!r.ok) return r.text().then(function(t){ throw new Error(r.status + " " + t.slice(0,120)); });
+  return r.json(); }); }
+function auth(){
+  if (tok && Date.now() < exp) return Promise.resolve(tok);
+  var r = null; try { r = localStorage.getItem("office_refresh"); } catch(e){}
+  if (r) {
+    return jfetch("https://securetoken.googleapis.com/v1/token?key=" + FB.key, {
+      method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:"grant_type=refresh_token&refresh_token=" + encodeURIComponent(r)
+    }).then(function(d){ tok = d.id_token; exp = Date.now() + (d.expires_in-60)*1000; return tok; })
+      .catch(anon);
+  }
+  return anon();
+}
+function anon(){
+  return jfetch("https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + FB.key, {
+    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({returnSecureToken:true})
+  }).then(function(d){
+    tok = d.idToken; exp = Date.now() + (d.expiresIn-60)*1000;
+    try { localStorage.setItem("office_refresh", d.refreshToken); } catch(e){}
+    return tok;
+  });
+}
+function docUrl(id){
+  return "https://firestore.googleapis.com/v1/projects/" + FB.proj +
+         "/databases/(default)/documents/shime_docs/" + id;
+}
+function readDoc(id){
+  return auth().then(function(t){
+    return fetch(docUrl(id), {headers:{Authorization:"Bearer " + t}});
+  }).then(function(r){
+    if (r.status === 404) return {};
+    if (!r.ok) throw new Error("read " + r.status);
+    return r.json();
+  }).then(function(d){
+    var raw = d && d.fields && d.fields.json && d.fields.json.stringValue;
+    if (!raw) return {};
+    try { return JSON.parse(raw); } catch(e){ return {}; }
+  });
+}
+function writeDoc(id, obj){
+  return auth().then(function(t){
+    return jfetch(docUrl(id), {
+      method:"PATCH",
+      headers:{Authorization:"Bearer " + t, "Content-Type":"application/json"},
+      body: JSON.stringify({fields:{json:{stringValue: JSON.stringify(obj)}}})
+    });
+  });
+}
+
+/* ---------- 合言葉 ---------- */
+var pass = null;
+try { pass = localStorage.getItem("office_pass"); } catch(e){}
+if (!pass) {
+  var g = document.getElementById("gate"); g.showModal();
+  document.getElementById("ok").onclick = function(){
+    var v = document.getElementById("pass").value.trim();
+    if (!v) return;
+    pass = v; try { localStorage.setItem("office_pass", v); } catch(e){}
+    g.close();
+  };
+}
+
+/* ---------- ローカル履歴 ---------- */
+function hist(room){
+  try { return JSON.parse(localStorage.getItem("office_log_" + room) || "[]"); } catch(e){ return []; }
+}
+function pushHist(room, item){
+  var a = hist(room); a.push(item); a = a.slice(-60);
+  try { localStorage.setItem("office_log_" + room, JSON.stringify(a)); } catch(e){}
+}
+
+/* ---------- 一覧 ---------- */
+function drawGrid(){
+  var g = document.getElementById("grid"); g.innerHTML = "";
+  STAFF.forEach(function(s){
+    var h = hist(s.id), last = h.length ? h[h.length-1] : null;
+    var b = document.createElement("button");
+    b.className = "tile";
+    b.innerHTML = '<div class="nm">' + s.nm + '</div>' +
+      '<div class="role">' + s.role + '</div>' +
+      '<div class="last">' + (last ? esc(last.text).slice(0,60) : "—") + '</div>' +
+      (last ? '<span class="badge ' + (last.ok ? "done" : "sending") + '">' +
+        (last.ok ? "届いた " : "送信中 ") + when(last.ts) + '</span>' : "");
+    b.onclick = function(){ openRoom(s); };
+    g.appendChild(b);
+  });
+}
+function esc(s){ return String(s).replace(/[<>&]/g, function(c){ return {"<":"&lt;",">":"&gt;","&":"&amp;"}[c]; }); }
+function when(ts){
+  var d = new Date(ts), n = new Date();
+  var hm = ("0"+d.getHours()).slice(-2) + ":" + ("0"+d.getMinutes()).slice(-2);
+  return d.toDateString() === n.toDateString() ? hm : (d.getMonth()+1) + "/" + d.getDate();
+}
+
+/* ---------- 会話 ---------- */
+var cur = null;
+function openRoom(s){
+  cur = s;
+  document.getElementById("rname").textContent = s.nm + "（" + s.role + "）";
+  document.getElementById("hint").textContent = "返事はDiscordの「" + s.nm + "」の部屋に届きます。";
+  drawLog();
+  document.getElementById("room").classList.add("on");
+  document.getElementById("box").focus();
+}
+function drawLog(){
+  var l = document.getElementById("log"), h = hist(cur.id);
+  if (!h.length) { l.innerHTML = '<div class="empty">まだ何も送っていません。<br>下の欄に打つか、マイクで話しかけてください。</div>'; return; }
+  l.innerHTML = h.map(function(m){
+    return '<div class="bub">' + esc(m.text) +
+      '<span class="t">' + when(m.ts) + (m.ok ? " ・届いた" : " ・送信中") + '</span></div>';
+  }).join("");
+  l.scrollTop = l.scrollHeight;
+}
+document.getElementById("back").onclick = function(){
+  document.getElementById("room").classList.remove("on"); drawGrid();
+};
+var box = document.getElementById("box");
+box.addEventListener("input", function(){ box.style.height = "auto"; box.style.height = Math.min(box.scrollHeight,160) + "px"; });
+
+document.getElementById("send").onclick = function(){
+  var text = box.value.trim(); if (!text || !cur) return;
+  var btn = this; btn.disabled = true;
+  var item = {text:text, ts:Date.now(), ok:false};
+  pushHist(cur.id, item); box.value = ""; box.style.height = "auto"; drawLog();
+
+  readDoc(INBOX).then(function(d){
+    var msgs = d.msgs || [];
+    msgs.push({ id:"m" + Date.now() + Math.floor(Math.random()*1000),
+                room:cur.id, name:cur.nm, text:text, ts:Date.now(), pass:pass });
+    d.msgs = msgs.slice(-100);
+    return writeDoc(INBOX, d);
+  }).then(function(){
+    var a = hist(cur.id); if (a.length) { a[a.length-1].ok = true;
+      try { localStorage.setItem("office_log_" + cur.id, JSON.stringify(a)); } catch(e){} }
+    drawLog();
+  }).catch(function(e){
+    alert("送れませんでした：" + e.message);
+  }).then(function(){ btn.disabled = false; });
+};
+
+/* ---------- PCのランプ ---------- */
+function lamp(){
+  readDoc(STATUS).then(function(d){
+    var dot = document.getElementById("dot"), t = document.getElementById("lamp");
+    var age = d.ts ? (Date.now()/1000 - d.ts) : 99999;
+    if (age < 90) { dot.className = "dot ok"; t.textContent = "PCは動いています（" + Math.round(age) + "秒前に確認）"; }
+    else { dot.className = "dot ng"; t.textContent = "PCの応答がありません。届いた指示は動き出しません"; }
+  }).catch(function(){
+    document.getElementById("dot").className = "dot ng";
+    document.getElementById("lamp").textContent = "通信できません";
+  });
+}
+drawGrid(); lamp(); setInterval(lamp, 20000);
+</script>
+</body>
+</html>
