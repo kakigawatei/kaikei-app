@@ -52,7 +52,7 @@
     background:rgba(255,255,255,.92);color:#1d2430;border-radius:999px;padding:1px 7px 1px 5px;
     font-size:clamp(8px,2.2vw,11.5px);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.18);
     display:inline-flex;align-items:center;gap:4px;line-height:1.5}
-  .seat.up .tag{top:auto;bottom:100%;margin-top:0;margin-bottom:2px}
+  .seat.up .tag{top:auto;bottom:4%;margin-top:0}   /* 下段: 枠の外に出すと切れる／上に出すと中段に被る → 枠内の下端（机の手前） */
   .seat .sdot{width:7px;height:7px;border-radius:50%;background:#cfd6dd;flex:0 0 auto}
   .seat .tn{display:flex;flex-direction:column;align-items:flex-start;line-height:1.25}
   .seat .rl{display:none;font-size:8.5px;font-weight:400;color:#5a6470;white-space:nowrap}
@@ -132,9 +132,11 @@
     /* 10人ぶんが必ず入るように、2列×5行ぴったりに割り付ける */
     .grid{flex:1 1 auto;min-height:0;overflow:hidden;
       display:grid;grid-template-columns:repeat(var(--gcols,2),1fr);grid-template-rows:repeat(var(--grows,5),1fr);gap:6px}
-    .grid.compact .tile .last{-webkit-line-clamp:1}
+    .grid.compact .tile .last{display:none}
+    .grid.compact .tile .badge{display:none}
     .grid.compact .tile{padding:4px 9px}
-    .grid.compact .tile .role{display:inline;margin-left:6px;font-size:10px}
+    .grid.compact .tile .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .grid.compact .tile .role{display:block;margin:1px 0 0;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .tile{padding:6px 9px;border-radius:9px;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
     .tile .nm{font-size:12px}
     .tile .role{display:block;font-size:10px;margin-top:1px}
@@ -711,7 +713,7 @@ window.addEventListener("resize", fitLayout);
 window.addEventListener("orientationchange", fitLayout);
 setTimeout(fitLayout, 60);
 document.getElementById("reload").onclick = loadFeed;
-var APP_VER = 30;
+var APP_VER = 31;
 document.getElementById("ver").textContent = "v" + APP_VER;
 function checkVer(){
   fetch("ver.txt?_=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
