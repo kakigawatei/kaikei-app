@@ -123,6 +123,8 @@
   .pick.done{background:#8aa79a;border-color:#8aa79a}
   @media (prefers-color-scheme:dark){ .copy{background:#22392f} }
   .bub b{font-weight:700}
+  .fixbtn.busy{opacity:.55;animation:micblink 1s infinite}
+  .fixnote{font-size:11.5px;color:#556;margin:0 0 4px 4px}
   .unread{text-align:center;color:#c0392b;font-size:12px;font-weight:700;margin:6px 0;letter-spacing:.05em}
   .afile{margin:6px 0} .afile .an{font-size:12px;color:#556;margin-bottom:2px} .afile audio{width:100%;max-width:360px;height:36px}
   .ttsauto{margin-top:6px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#556;font:inherit;font-size:12px;padding:4px 10px;cursor:pointer}
@@ -271,6 +273,7 @@
     <button class="pic" id="pic" title="写真を送る">📷</button>
     <input type="file" id="file" accept="image/*" multiple hidden>
     <textarea id="box" rows="1" placeholder="話しかける"></textarea>
+    <button class="pic fixbtn" id="fixbtn" title="音声入力の文をmasa辞書で整える">✨</button>
     <button class="send" id="send">送る</button>
   </div>
 </section>
@@ -424,6 +427,36 @@ function openRoom(s){
   feedTimer = setInterval(loadFeed, 30000);
 }
 var LOG_STEP = 40;            /* 一度に描く件数 */
+/* ---------- ✨整える（masa辞書で整文） ---------- */
+var fixRid = null;            /* 直近に整えた依頼id（送信時に付けて学習に使う） */
+function fixText(){
+  var box = document.getElementById("box"), b = document.getElementById("fixbtn");
+  var raw = (box.value || "").trim();
+  if (!raw || !cur) return;
+  var rid = "f" + Date.now();
+  b.className = "pic fixbtn busy"; b.textContent = "…";
+  var ph = box.placeholder; box.placeholder = "整えています…";
+  writeDoc("ai_office_req", {fix:{rid:rid, text:raw, room:cur.id}}).then(function(){
+    var tries = 0;
+    (function poll(){
+      tries++;
+      setTimeout(function(){
+        readDoc("ai_office_fix_" + rid).then(function(d){
+          if (d && d.text) {
+            box.value = d.text; fixRid = rid;
+            box.style.height = "auto"; box.style.height = Math.min(box.scrollHeight, 200) + "px";
+            b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; box.focus();
+          } else if (tries < 15) poll();
+          else { b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; alert("整えるのに時間がかかっています。そのまま送るか、もう一度押してください"); }
+        }).catch(function(){ if (tries < 15) poll(); else { b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; } });
+      }, 2500);
+    })();
+  }).catch(function(){ b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; alert("送れませんでした（通信）"); });
+}
+(function(){
+  var b = document.getElementById("fixbtn");
+  if (b) { b.onclick = fixText; b.addEventListener("mousedown", function(e){ e.preventDefault(); }); }
+})();
 var openScroll = false;       /* 部屋を開いた直後だけ true（未読位置へ飛ぶ） */
 function readMark(room){ try { return localStorage.getItem("office_read_" + room) || ""; } catch(e){ return ""; } }
 function saveMark(room, id){ try { if (id && idGt(id, readMark(room))) localStorage.setItem("office_read_" + room, id); } catch(e){} }
@@ -926,6 +959,7 @@ document.getElementById("send").onclick = function(){
   var mid = "m" + Date.now() + Math.floor(Math.random()*1000);
   var item = {id:mid, text:text, ts:Date.now(), ok:false, thumb: shots.length ? shots[0].thumb : null,
               thumbs: shots.map(function(x){ return x.thumb; }), n: shots.length};
+  var sentFixRid = fixRid; fixRid = null;
   pushHist(cur.id, item); box.value = ""; box.style.height = "auto"; forceBottom = true; drawLog();
   try { var sent = JSON.parse(localStorage.getItem("office_sent") || "[]"); sent.push(mid); localStorage.setItem("office_sent", JSON.stringify(sent.slice(-50))); } catch(e){}
   if (typeof fitLayout === "function") setTimeout(fitLayout, 0);
@@ -935,7 +969,7 @@ document.getElementById("send").onclick = function(){
   shots.forEach(function(sh, k){ first = first.then(function(){ return writeDoc(ids[k], {b64: sh.full}); }); });
   first.then(function(){ return readDoc(INBOX); }).then(function(d){
     var msgs = d.msgs || [];
-    msgs.push({ id:mid, room:cur.id, name:cur.nm, text:text, ts:Date.now(), pass:pass,
+    msgs.push({ id:mid, room:cur.id, name:cur.nm, text:text, ts:Date.now(), pass:pass, fixrid: sentFixRid || null,
                 img: ids.length ? ids[0] : null, imgs: ids });
     d.msgs = msgs.slice(-100);
     return writeDoc(INBOX, d);
@@ -1286,7 +1320,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 76;
+var APP_VER = 77;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
