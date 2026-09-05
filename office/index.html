@@ -421,7 +421,7 @@ function openRoom(s){
   fitLayout();
   loadFeed();
   if (feedTimer) clearInterval(feedTimer);
-  feedTimer = setInterval(loadFeed, 15000);
+  feedTimer = setInterval(loadFeed, 30000);
 }
 var LOG_STEP = 40;            /* 一度に描く件数 */
 var openScroll = false;       /* 部屋を開いた直後だけ true（未読位置へ飛ぶ） */
@@ -1286,7 +1286,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 75;
+var APP_VER = 76;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
@@ -1307,8 +1307,8 @@ function checkVer(){
 }
 document.getElementById("doreload").onclick = function(){ location.reload(); };
 drawGrid(); drawSeats(); lamp(); loadFeed(); drawWait(); loadTaskDone();
-setInterval(lamp, 20000);
-setInterval(function(){ if (!cur) loadFeed(); }, 25000);   /* 一覧画面も自動で新しくする */
+setInterval(lamp, 60000);
+setInterval(function(){ if (!cur) loadFeed(); }, 45000);   /* 一覧画面も自動で新しくする */
 setInterval(checkVer, 45000); setTimeout(checkVer, 3000);
 </script>
 </body>
