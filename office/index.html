@@ -1060,7 +1060,7 @@ box.addEventListener("input", function(){
   clearTimeout(autoIdle);
   if (!autoOn || micOn || window.fixBusy) return;
   if (window.matchMedia && window.matchMedia("(pointer: fine)").matches) return;
-  autoIdle = setTimeout(function(){ if (box.value.trim()) armAuto(3, "3秒後に整えて送ります", true); }, 3000);
+  autoIdle = setTimeout(function(){ if (box.value.trim()) armAuto(3, "3秒後に送ります"); }, 3000);   /* v84: 整えずに送る（Typelessが整えている） */
 });
 /* A) 🎤: Apple音声認識（Web Speech）。黙ると認識が終わる→2秒のカウントダウン→送信 */
 var SR = window.SpeechRecognition || window.webkitSpeechRecognition, rec = null, micOn = false, micBase = "";
@@ -1442,7 +1442,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 83;
+var APP_VER = 84;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
