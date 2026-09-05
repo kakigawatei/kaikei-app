@@ -276,7 +276,7 @@
     <div><div class="rname" id="rname"></div></div>
     <button class="ttsauto rtts" id="ttsauto2" hidden title="ONの間は返事が届くたびに音声で再生">🗣 会話モード OFF</button>
     <button class="ttsauto rtts" id="autosendbtn" title="Typelessで話し終えて3秒たったら自動で送る">⏱ 自動送信 OFF</button>
-    <button class="ttsauto rtts" id="fastbtn" title="ONの間は担当がSonnetで即答（Fableは割り込まない）。OFFにすると会話をまとめてFableに渡す">⚡ はやい会話 OFF</button>
+    <button class="ttsauto rtts" id="fastbtn" hidden title="ONの間は担当がSonnetで即答（Fableは割り込まない）。OFFにすると会話をまとめてFableに渡す">⚡ はやい会話 OFF</button>
     <button class="refresh" id="reload">更新</button>
   </div>
   <div class="log" id="log"></div>
@@ -444,11 +444,12 @@ function openRoom(s){
 }
 /* ⚡はやい会話: 部屋ごとにON/OFF。ON中は一覧の取得を5秒に */
 var fastEndPending = false;
-var FAST_DEFAULT_ON = {"1532176222946197635": 1};   /* コンの部屋＝受付。最初からON */
+var FAST_DEFAULT_ON = {};   /* v81: ⚡は使わない（masa判断）。コードは残す */
 function fastOn(){ try { if (!cur) return false; var v = localStorage.getItem("office_fast_" + cur.id); if (v === null) return !!FAST_DEFAULT_ON[cur.id]; return v === "1"; } catch(e){ return false; } }
 function setFeedTimer(){ if (feedTimer) clearInterval(feedTimer); feedTimer = setInterval(loadFeed, fastOn() ? 5000 : 30000); }
 function paintFast(){
   var b = document.getElementById("fastbtn"); if (!b) return;
+  b.hidden = true;
   var on = fastOn();
   b.className = "ttsauto rtts" + (on ? " on" : ""); b.textContent = "⚡ はやい会話 " + (on ? "ON" : "OFF");
 }
@@ -468,13 +469,14 @@ document.getElementById("fastbtn").onclick = function(){
 var LOG_STEP = 40;            /* 一度に描く件数 */
 /* ---------- ✨整える（masa辞書で整文） ---------- */
 var fixRid = null;            /* 直近に整えた依頼id（送信時に付けて学習に使う） */
-function fixText(){
+function fixText(autoAfter){
+  autoAfter = (autoAfter === true);
   var box = document.getElementById("box"), b = document.getElementById("fixbtn");
   var raw = (box.value || "").trim();
   if (!raw || !cur) return;
   var rid = "f" + Date.now();
   /* v79: 帯が出ていたら止めて、整え終わってから改めて2秒で送る */
-  var wasArmed = document.getElementById("autobar").classList.contains("on");
+  var wasArmed = autoAfter || document.getElementById("autobar").classList.contains("on");
   if (typeof cancelAuto === "function") cancelAuto();
   if (typeof autoIdle !== "undefined") clearTimeout(autoIdle);
   window.fixBusy = true;
@@ -492,15 +494,15 @@ function fixText(){
             b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; window.fixBusy = false;
             if (wasArmed && typeof armAuto === "function") armAuto(2, "整えました。2秒後に送ります"); else box.focus();
           } else if (tries < 15) poll();
-          else { window.fixBusy = false; b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; alert("整えるのに時間がかかっています。そのまま送るか、もう一度押してください"); }
-        }).catch(function(){ if (tries < 15) poll(); else { window.fixBusy = false; b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; } });
+          else { window.fixBusy = false; b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; if (autoAfter) { armAuto(2, "整えられなかったので、そのまま2秒後に送ります"); return; } alert("整えるのに時間がかかっています。そのまま送るか、もう一度押してください"); }
+        }).catch(function(){ if (tries < 15) poll(); else { window.fixBusy = false; b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; if (autoAfter) armAuto(2, "整えられなかったので、そのまま2秒後に送ります"); } });
       }, 2500);
     })();
-  }).catch(function(){ window.fixBusy = false; b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; alert("送れませんでした（通信）"); });
+  }).catch(function(){ window.fixBusy = false; b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; if (autoAfter) { armAuto(2, "整えられなかったので、そのまま2秒後に送ります"); return; } alert("送れませんでした（通信）"); });
 }
 (function(){
   var b = document.getElementById("fixbtn");
-  if (b) { b.onclick = fixText; b.addEventListener("mousedown", function(e){ e.preventDefault(); }); }
+  if (b) { b.onclick = function(){ fixText(false); }; b.addEventListener("mousedown", function(e){ e.preventDefault(); }); }
 })();
 var openScroll = false;       /* 部屋を開いた直後だけ true（未読位置へ飛ぶ） */
 function readMark(room){ try { return localStorage.getItem("office_read_" + room) || ""; } catch(e){ return ""; } }
@@ -1039,7 +1041,7 @@ paintAuto();
 autoBtn.onclick = function(){ autoOn = !autoOn; try { localStorage.setItem("office_autosend", autoOn ? "1" : "0"); } catch(e){} paintAuto(); if (!autoOn) cancelAuto(); if (typeof fitLayout === "function") fitLayout(); };
 function cancelAuto(){ clearTimeout(autoT); clearInterval(autoTick); autoT = null; document.getElementById("autobar").classList.remove("on"); }
 /* n秒のカウントダウン帯を出してから送る。帯の「止める」か、文字が変わったら取り消し */
-function armAuto(sec, label){
+function armAuto(sec, label, thenFix){
   cancelAuto();
   if (!box.value.trim() || !cur) return;
   var bar = document.getElementById("autobar"), fill = document.getElementById("autofill");
@@ -1047,7 +1049,7 @@ function armAuto(sec, label){
   document.getElementById("autotxt").textContent = label || (sec + "秒後に送ります");
   autoTick = setInterval(function(){
     autoLeft--; fill.style.width = Math.max(0, autoLeft / (sec * 10) * 100) + "%";
-    if (autoLeft <= 0) { cancelAuto(); if (box.value.trim()) { box.blur(); document.getElementById("send").click(); } }
+    if (autoLeft <= 0) { cancelAuto(); if (!box.value.trim()) return; if (thenFix) { fixText(true); } else { box.blur(); document.getElementById("send").click(); } }
   }, 100);
 }
 document.getElementById("autostop").onclick = function(){ cancelAuto(); box.focus(); };
@@ -1058,7 +1060,7 @@ box.addEventListener("input", function(){
   clearTimeout(autoIdle);
   if (!autoOn || micOn || window.fixBusy) return;
   if (window.matchMedia && window.matchMedia("(pointer: fine)").matches) return;
-  autoIdle = setTimeout(function(){ if (box.value.trim()) armAuto(3); }, 3000);
+  autoIdle = setTimeout(function(){ if (box.value.trim()) armAuto(3, "3秒後に整えて送ります", true); }, 3000);
 });
 /* A) 🎤: Apple音声認識（Web Speech）。黙ると認識が終わる→2秒のカウントダウン→送信 */
 var SR = window.SpeechRecognition || window.webkitSpeechRecognition, rec = null, micOn = false, micBase = "";
@@ -1085,7 +1087,7 @@ micBtn.onclick = function(){
   rec.onerror = function(ev){ if (ev.error !== "no-speech" && ev.error !== "aborted") alert("音声認識エラー：" + ev.error); };
   rec.onend = function(){
     clearTimeout(quiet); micOn = false; micBtn.classList.remove("on"); micBtn.textContent = "🎤"; box.placeholder = "話しかける";
-    if ((micBase + finalTxt).trim()) { box.value = (micBase + finalTxt).trim(); armAuto(2, "2秒後に送ります（🎤）"); }
+    if ((micBase + finalTxt).trim()) { box.value = (micBase + finalTxt).trim(); box.placeholder = "整えています…"; fixText(true); }
   };
   try { rec.start(); } catch(e){ alert("🎤を始められませんでした：" + e.message); }
 };
@@ -1430,7 +1432,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 80;
+var APP_VER = 81;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
