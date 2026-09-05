@@ -124,6 +124,7 @@
   @media (prefers-color-scheme:dark){ .copy{background:#22392f} }
   .bub b{font-weight:700}
   .fixbtn.busy{opacity:.55;animation:micblink 1s infinite}
+  .msg.fast .bub{border-left:3px solid #f5a623}
   /* v78: 🎤と自動送信 */
   .micbtn.on{background:#d33;color:#fff;border-color:#d33;animation:micblink 1s infinite}
   .autobar{display:none;align-items:center;gap:10px;max-width:820px;margin:0 auto;padding:6px 12px;font-size:13px;color:var(--sub);background:var(--card);border-top:1px solid var(--line)}
@@ -275,6 +276,7 @@
     <div><div class="rname" id="rname"></div></div>
     <button class="ttsauto rtts" id="ttsauto2" hidden title="ONの間は返事が届くたびに音声で再生">🗣 会話モード OFF</button>
     <button class="ttsauto rtts" id="autosendbtn" title="Typelessで話し終えて3秒たったら自動で送る">⏱ 自動送信 OFF</button>
+    <button class="ttsauto rtts" id="fastbtn" title="ONの間は担当がSonnetで即答（Fableは割り込まない）。OFFにすると会話をまとめてFableに渡す">⚡ はやい会話 OFF</button>
     <button class="refresh" id="reload">更新</button>
   </div>
   <div class="log" id="log"></div>
@@ -437,9 +439,32 @@ function openRoom(s){
   if (window.matchMedia && window.matchMedia("(pointer: fine)").matches) document.getElementById("box").focus();
   fitLayout();
   loadFeed();
-  if (feedTimer) clearInterval(feedTimer);
-  feedTimer = setInterval(loadFeed, 30000);
+  paintFast();
+  setFeedTimer();
 }
+/* ⚡はやい会話: 部屋ごとにON/OFF。ON中は一覧の取得を5秒に */
+var fastEndPending = false;
+var FAST_DEFAULT_ON = {"1532176222946197635": 1};   /* コンの部屋＝受付。最初からON */
+function fastOn(){ try { if (!cur) return false; var v = localStorage.getItem("office_fast_" + cur.id); if (v === null) return !!FAST_DEFAULT_ON[cur.id]; return v === "1"; } catch(e){ return false; } }
+function setFeedTimer(){ if (feedTimer) clearInterval(feedTimer); feedTimer = setInterval(loadFeed, fastOn() ? 5000 : 30000); }
+function paintFast(){
+  var b = document.getElementById("fastbtn"); if (!b) return;
+  var on = fastOn();
+  b.className = "ttsauto rtts" + (on ? " on" : ""); b.textContent = "⚡ はやい会話 " + (on ? "ON" : "OFF");
+}
+document.getElementById("fastbtn").onclick = function(){
+  if (!cur) return;
+  var on = !fastOn();
+  try { localStorage.setItem("office_fast_" + cur.id, on ? "1" : "0"); } catch(e){}
+  paintFast(); setFeedTimer(); if (typeof fitLayout === "function") fitLayout();
+  if (!on) {
+    /* OFFにした＝ここまでの会話をFableにまとめてもらう */
+    fastEndPending = true;
+    var box = document.getElementById("box");
+    if (!box.value.trim()) box.value = "まとめて";
+    document.getElementById("send").click();
+  }
+};
 var LOG_STEP = 40;            /* 一度に描く件数 */
 /* ---------- ✨整える（masa辞書で整文） ---------- */
 var fixRid = null;            /* 直近に整えた依頼id（送信時に付けて学習に使う） */
@@ -980,6 +1005,7 @@ document.getElementById("send").onclick = function(){
   var item = {id:mid, text:text, ts:Date.now(), ok:false, thumb: shots.length ? shots[0].thumb : null,
               thumbs: shots.map(function(x){ return x.thumb; }), n: shots.length};
   var sentFixRid = fixRid; fixRid = null;
+  var fastFlag = fastOn(), endFlag = fastEndPending; fastEndPending = false;
   pushHist(cur.id, item); box.value = ""; box.style.height = "auto"; forceBottom = true; drawLog();
   try { var sent = JSON.parse(localStorage.getItem("office_sent") || "[]"); sent.push(mid); localStorage.setItem("office_sent", JSON.stringify(sent.slice(-50))); } catch(e){}
   if (typeof fitLayout === "function") setTimeout(fitLayout, 0);
@@ -990,7 +1016,8 @@ document.getElementById("send").onclick = function(){
   first.then(function(){ return readDoc(INBOX); }).then(function(d){
     var msgs = d.msgs || [];
     msgs.push({ id:mid, room:cur.id, name:cur.nm, text:text, ts:Date.now(), pass:pass, fixrid: sentFixRid || null,
-                img: ids.length ? ids[0] : null, imgs: ids });
+                img: ids.length ? ids[0] : null, imgs: ids,
+                fast: (fastFlag && !endFlag) ? true : null, fastEnd: endFlag ? true : null });
     d.msgs = msgs.slice(-100);
     return writeDoc(INBOX, d);
   }).then(function(){
@@ -1403,7 +1430,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 79;
+var APP_VER = 80;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
