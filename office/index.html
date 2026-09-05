@@ -288,8 +288,8 @@
     <button class="pic" id="pic" title="写真を送る">📷</button>
     <input type="file" id="file" accept="image/*" multiple hidden>
     <textarea id="box" rows="1" placeholder="話しかける"></textarea>
-    <button class="pic micbtn" id="micbtn" title="タップして話す（黙ると自動で送る）">🎤</button>
-    <button class="pic fixbtn" id="fixbtn" title="音声入力の文をmasa辞書で整える">✨</button>
+    <button class="pic micbtn" id="micbtn" hidden title="タップして話す（黙ると自動で送る）">🎤</button>
+    <button class="pic fixbtn" id="fixbtn" hidden title="音声入力の文をmasa辞書で整える">✨</button>
     <button class="send" id="send">送る</button>
   </div>
 </section>
@@ -1442,7 +1442,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 82;
+var APP_VER = 83;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
