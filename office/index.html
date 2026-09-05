@@ -1069,12 +1069,13 @@ if (!SR) { micBtn.title = "この端末では音声認識が使えません"; mi
 micBtn.onclick = function(){
   if (!SR) { alert("この端末では🎤の音声認識が使えません。Typelessのマイクを使ってください（自動送信は「黙ったら自動で送る」をONに）"); return; }
   if (micOn) { try { rec.stop(); } catch(e){} return; }
+  if (rec) { try { rec.abort(); } catch(e){} rec = null; }
   cancelAuto(); clearTimeout(autoIdle);
   rec = new SR(); rec.lang = "ja-JP"; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 1;
   micBase = box.value ? box.value.replace(/\s+$/, "") + " " : "";
   var finalTxt = "", quiet = null;
   function bump(){ clearTimeout(quiet); quiet = setTimeout(function(){ try { rec.stop(); } catch(e){} }, 2500); }  /* 2.5秒黙ったら終わり */
-  rec.onstart = function(){ micOn = true; micBtn.classList.add("on"); micBtn.textContent = "⏹"; box.placeholder = "聞いています…"; bump(); };
+  rec.onstart = function(){ clearTimeout(startGuard); micOn = true; micBtn.classList.add("on"); micBtn.textContent = "⏹"; box.placeholder = "聞いています…"; bump(); };
   rec.onresult = function(ev){
     var interim = "";
     for (var i = ev.resultIndex; i < ev.results.length; i++) {
@@ -1086,10 +1087,19 @@ micBtn.onclick = function(){
   };
   rec.onerror = function(ev){ if (ev.error !== "no-speech" && ev.error !== "aborted") alert("音声認識エラー：" + ev.error); };
   rec.onend = function(){
-    clearTimeout(quiet); micOn = false; micBtn.classList.remove("on"); micBtn.textContent = "🎤"; box.placeholder = "話しかける";
+    clearTimeout(quiet); clearTimeout(startGuard); micOn = false; micBtn.classList.remove("on"); micBtn.textContent = "🎤"; box.placeholder = "話しかける";
+    try { rec.abort(); } catch(e){}
+    rec = null;                                   /* マイクを離す（Typelessが使えるように） */
     if ((micBase + finalTxt).trim()) { box.value = (micBase + finalTxt).trim(); box.placeholder = "整えています…"; fixText(true); }
   };
-  try { rec.start(); } catch(e){ alert("🎤を始められませんでした：" + e.message); }
+  var startGuard = setTimeout(function(){
+    if (!micOn) {
+      try { rec && rec.abort(); } catch(e){}
+      rec = null; micBtn.classList.remove("on"); micBtn.textContent = "🎤"; box.placeholder = "話しかける";
+      alert("🎤が始まりませんでした。アプリを閉じて開き直すと直ります（iPadの音声認識が裏で止まっている状態）");
+    }
+  }, 3000);
+  try { rec.start(); } catch(e){ clearTimeout(startGuard); rec = null; alert("🎤を始められませんでした：" + e.message); }
 };
 /* 送信したら帯も消す */
 (function(){ var sb = document.getElementById("send"), orig = sb.onclick; sb.onclick = function(){ cancelAuto(); clearTimeout(autoIdle); return orig.apply(this, arguments); }; })();
@@ -1432,7 +1442,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 81;
+var APP_VER = 82;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
