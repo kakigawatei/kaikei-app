@@ -448,6 +448,11 @@ function fixText(){
   var raw = (box.value || "").trim();
   if (!raw || !cur) return;
   var rid = "f" + Date.now();
+  /* v79: 帯が出ていたら止めて、整え終わってから改めて2秒で送る */
+  var wasArmed = document.getElementById("autobar").classList.contains("on");
+  if (typeof cancelAuto === "function") cancelAuto();
+  if (typeof autoIdle !== "undefined") clearTimeout(autoIdle);
+  window.fixBusy = true;
   b.className = "pic fixbtn busy"; b.textContent = "…";
   var ph = box.placeholder; box.placeholder = "整えています…";
   writeDoc("ai_office_req", {fix:{rid:rid, text:raw, room:cur.id}}).then(function(){
@@ -459,13 +464,14 @@ function fixText(){
           if (d && d.text) {
             box.value = d.text; fixRid = rid;
             box.style.height = "auto"; box.style.height = Math.min(box.scrollHeight, 200) + "px";
-            b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; box.focus();
+            b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; window.fixBusy = false;
+            if (wasArmed && typeof armAuto === "function") armAuto(2, "整えました。2秒後に送ります"); else box.focus();
           } else if (tries < 15) poll();
-          else { b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; alert("整えるのに時間がかかっています。そのまま送るか、もう一度押してください"); }
-        }).catch(function(){ if (tries < 15) poll(); else { b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; } });
+          else { window.fixBusy = false; b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; alert("整えるのに時間がかかっています。そのまま送るか、もう一度押してください"); }
+        }).catch(function(){ if (tries < 15) poll(); else { window.fixBusy = false; b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; } });
       }, 2500);
     })();
-  }).catch(function(){ b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; alert("送れませんでした（通信）"); });
+  }).catch(function(){ window.fixBusy = false; b.className = "pic fixbtn"; b.textContent = "✨"; box.placeholder = ph; alert("送れませんでした（通信）"); });
 }
 (function(){
   var b = document.getElementById("fixbtn");
@@ -1023,7 +1029,7 @@ var autoIdle = null;
 box.addEventListener("input", function(){
   cancelAuto();
   clearTimeout(autoIdle);
-  if (!autoOn || micOn) return;
+  if (!autoOn || micOn || window.fixBusy) return;
   if (window.matchMedia && window.matchMedia("(pointer: fine)").matches) return;
   autoIdle = setTimeout(function(){ if (box.value.trim()) armAuto(3); }, 3000);
 });
@@ -1397,7 +1403,7 @@ pillEl.addEventListener("touchstart", function(e){ e.preventDefault(); jumpBotto
 if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 900) {
   document.getElementById("box").placeholder = "話しかける（マイク・⌘V・ドラッグでもOK）";
 }
-var APP_VER = 78;
+var APP_VER = 79;
 document.getElementById("ver").textContent = "v" + APP_VER;
 document.getElementById("ver").style.cursor = "pointer";
 document.getElementById("ver").onclick = function(){
